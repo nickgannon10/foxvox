@@ -115,6 +115,13 @@ export function createMessageHandler(options: MessageHandlerOptions) {
       const caller = authorizeSender(sender, options.extensionId);
       if (!validRequest(message)) throw new AnkiError('Invalid Recall request.');
       if (
+        !caller.extensionPage &&
+        sender.documentLifecycle &&
+        sender.documentLifecycle !== 'active' &&
+        ['recall:next', 'recall:answer', 'recall:classify'].includes(message.type)
+      )
+        throw new AnkiError('This page is no longer active. Reload X to continue reviewing.');
+      if (
         (['recall:saveSettings', 'recall:status'].includes(message.type) ||
           (message.type === 'recall:testMode' && message.enabled)) &&
         !caller.extensionPage
@@ -187,12 +194,43 @@ export function createMessageHandler(options: MessageHandlerOptions) {
   };
 }
 
+/** Browser events cover teardown even when a content-script release cannot finish. */
+export function watchTabLifecycle(
+  tabs: Pick<typeof chrome.tabs, 'onUpdated' | 'onRemoved' | 'onReplaced' | 'query'>,
+  service: RecallService,
+  ready: Promise<unknown> = Promise.resolve()
+): Promise<void> {
+  const release = (tabId: number): void => {
+    void ready.then(() => service.releaseTab(tabId)).catch(() => undefined);
+  };
+  tabs.onUpdated.addListener((tabId, change) => {
+    // Ignore ordinary SPA URL/title updates: the current document still owns its cards.
+    if (change.status === 'loading' || change.discarded) release(tabId);
+  });
+  tabs.onRemoved.addListener(release);
+  tabs.onReplaced.addListener((_added, removed) => release(removed));
+  return ready.then(async () => {
+    try {
+      const open = await tabs.query({});
+      await service.releaseClosedTabs(open.flatMap(tab => (tab.id === undefined ? [] : [tab.id])));
+    } catch {
+      // If tab inspection is unavailable, the existing lease timeout still applies.
+    }
+  });
+}
+
 if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage && chrome.storage?.local) {
   const storage = chrome.storage.local;
   // Secrets and persisted leases must not be readable through chrome.storage by content scripts.
   const ready = storage.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
   const service = new RecallService({ storage, settings: () => loadSettings(storage) });
-  const handle = createMessageHandler({ extensionId: chrome.runtime.id, storage, service, ready });
+  const cleanupReady = watchTabLifecycle(chrome.tabs, service, ready);
+  const handle = createMessageHandler({
+    extensionId: chrome.runtime.id,
+    storage,
+    service,
+    ready: cleanupReady,
+  });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     void handle(message, sender).then(sendResponse);
     return true;

@@ -422,6 +422,33 @@ export class RecallService {
     });
   }
 
+  private releasePendingWhere(matches: (owner: string) => boolean): Promise<void> {
+    return this.serial(async () => {
+      const state = await this.readState();
+      let changed = false;
+      for (const [id, lease] of Object.entries(state.leases)) {
+        // Never discard the retry guard for an answer that may have reached Anki.
+        if (lease.state === 'pending' && matches(lease.owner)) {
+          delete state.leases[id];
+          changed = true;
+        }
+      }
+      if (changed) await this.saveState(state);
+    });
+  }
+
+  releaseTab(tabId: number): Promise<void> {
+    return this.releasePendingWhere(owner => owner.startsWith(`tab:${tabId}:`));
+  }
+
+  releaseClosedTabs(liveTabIds: number[]): Promise<void> {
+    const live = new Set(liveTabIds);
+    return this.releasePendingWhere(owner => {
+      const match = /^tab:(\d+):/.exec(owner);
+      return !!match && !live.has(Number(match[1]));
+    });
+  }
+
   answer(owner: string, leaseId: string, rating: Rating): Promise<RecallStats> {
     return this.serial(async () => {
       if (![1, 2, 3, 4].includes(rating)) throw new AnkiError('Choose Again, Hard, Good, or Easy.');

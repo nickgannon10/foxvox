@@ -7,7 +7,12 @@ import {
   RecallService,
   REVIEW_STATE_KEY,
 } from '../../src/recall/anki';
-import { authorizeSender, createMessageHandler, validRequest } from '../../src/recall/background';
+import {
+  authorizeSender,
+  createMessageHandler,
+  validRequest,
+  watchTabLifecycle,
+} from '../../src/recall/background';
 import { LocalStorage, normalizeSettings, SETTINGS_KEY } from '../../src/recall/settings';
 import { DEFAULT_SETTINGS, RecallSettings } from '../../src/recall/types';
 
@@ -177,6 +182,78 @@ describe('AnkiConnect protocol', () => {
 });
 
 describe('persisted review leases', () => {
+  test('100 concurrent reservations respect the cap and 50 duplicate grades write only once', async () => {
+    const h = harness({ dailyLimit: 12, mathEvery: 0 });
+    const ids = Array.from({ length: 64 }, (_, i) => i + 100);
+    h.anki.cards.clear();
+    ids.forEach(id => h.anki.cards.set(id, fixtureCard(id)));
+    h.anki.setDue(ids);
+    const results = await Promise.all(
+      Array.from({ length: 100 }, (_, i) => h.service.next(`tab:${i}:doc`, `post-${i}`))
+    );
+    const cards = results.filter(card => card !== null);
+    expect(cards).toHaveLength(12);
+    expect(new Set(cards.map(card => card.cardId)).size).toBe(12);
+    expect(h.anki.answers()).toHaveLength(0);
+    const grades = await Promise.allSettled(
+      Array.from({ length: 50 }, () => h.service.answer('tab:0:doc', cards[0]!.leaseId, 3))
+    );
+    expect(grades.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(h.anki.answers()).toHaveLength(1);
+    expect((await h.service.stats()).reviewed).toBe(1);
+  });
+
+  test('tab cleanup releases pending cards but retains uncertain answers and other tabs', async () => {
+    const h = harness({ mathEvery: 0 });
+    const pending = (await h.service.next('tab:1:old', 'post-a'))!;
+    const uncertain = (await h.service.next('tab:1:old', 'post-b'))!;
+    const other = (await h.service.next('tab:10:doc', 'post-c'))!;
+    const state = h.storage.values[REVIEW_STATE_KEY] as {
+      leases: Record<string, { state: string }>;
+    };
+    state.leases[uncertain.leaseId].state = 'submitting';
+    await h.service.releaseTab(1);
+    await expect(h.service.answer('tab:1:old', pending.leaseId, 3)).rejects.toThrow('expired');
+    await expect(h.service.answer('tab:1:old', uncertain.leaseId, 3)).rejects.toThrow(
+      'will not submit'
+    );
+    expect(await h.service.next('tab:10:doc', 'post-c')).toEqual(other);
+    expect((await h.service.next('tab:1:new', 'new-post'))?.cardId).toBe(pending.cardId);
+    expect(h.anki.answers()).toHaveLength(0);
+  });
+
+  test('reload, close, replacement and startup cleanup free abandoned document reservations', async () => {
+    const h = harness({ mathEvery: 0 });
+    const old = (await h.service.next('tab:7:old', 'old-post'))!;
+    const other = (await h.service.next('tab:8:doc', 'other-post'))!;
+    const closed = (await h.service.next('tab:9:doc', 'closed-post'))!;
+    const updated = jest.fn();
+    const removed = jest.fn();
+    const replaced = jest.fn();
+    const tabs = {
+      onUpdated: { addListener: updated },
+      onRemoved: { addListener: removed },
+      onReplaced: { addListener: replaced },
+      query: jest.fn(async () => [{ id: 7 }, { id: 8 }]),
+    } as unknown as Parameters<typeof watchTabLifecycle>[0];
+    await watchTabLifecycle(tabs, h.service);
+    await expect(h.service.answer('tab:9:doc', closed.leaseId, 3)).rejects.toThrow('expired');
+    updated.mock.calls[0][0](7, { url: 'https://x.com/explore', title: 'Explore' });
+    await Promise.resolve();
+    expect(await h.service.next('tab:7:old', 'old-post')).toEqual(old);
+    updated.mock.calls[0][0](7, { status: 'loading' });
+    await Promise.resolve();
+    const fresh = (await h.service.next('tab:7:new', 'fresh-post'))!;
+    expect(fresh.cardId).toBe(old.cardId);
+    expect(fresh.leaseId).not.toBe(old.leaseId);
+    removed.mock.calls[0][0](8);
+    replaced.mock.calls[0][0](17, 7);
+    await Promise.resolve();
+    await expect(h.service.answer('tab:8:doc', other.leaseId, 3)).rejects.toThrow('expired');
+    await expect(h.service.answer('tab:7:new', fresh.leaseId, 3)).rejects.toThrow('expired');
+    expect(h.anki.answers()).toHaveLength(0);
+  });
+
   test('deduplicates simultaneous tabs, honors pending daily reservations, and survives restart', async () => {
     const h = harness({ dailyLimit: 2 });
     const [a, b] = await Promise.all([
@@ -409,6 +486,23 @@ describe('runtime message boundary', () => {
     expect(() => authorizeSender({ ...tabSender, url: 'http://x.com/home' }, extensionId)).toThrow(
       'home feed'
     );
+  });
+
+  test('inactive documents cannot reserve or grade, but can release their old cards', async () => {
+    const h = harness();
+    const handle = createMessageHandler({ extensionId, storage: h.storage, service: h.service });
+    const active: chrome.runtime.MessageSender = {
+      ...tabSender,
+      documentId: 'old',
+      documentLifecycle: 'active',
+    };
+    const inactive: chrome.runtime.MessageSender = { ...active, documentLifecycle: 'cached' };
+    const reserved = await handle({ type: 'recall:next', postId: 'post' }, active);
+    const leaseId = reserved.card!.leaseId;
+    expect((await handle({ type: 'recall:next', postId: 'another' }, inactive)).ok).toBe(false);
+    expect((await handle({ type: 'recall:answer', leaseId, rating: 3 }, inactive)).ok).toBe(false);
+    expect((await handle({ type: 'recall:release', leaseId }, inactive)).ok).toBe(true);
+    expect(h.anki.answers()).toHaveLength(0);
   });
 
   test('rejects malformed requests and non-numeric grades', () => {

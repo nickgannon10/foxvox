@@ -117,6 +117,10 @@ cards count toward the cap across tabs. Reservations survive worker restarts,
 expire after 20 minutes if unsubmitted, and are revalidated before grading. An
 ambiguous answer is never blindly retried. It is reconciled only after a later
 Anki check demonstrates increased review count and changed scheduling state.
+Reloading, discarding, replacing, or closing a tab releases its unsubmitted
+cards. Worker startup also clears reservations belonging to closed tabs. These
+cleanups preserve uncertain-answer records so navigation cannot cause a
+duplicate review. No additional browser permissions are required.
 
 **Scheduling scope:** `answerCards` invokes Anki's scheduler, including the
 collection's configured scheduling algorithm. `findCards` does not reproduce
@@ -181,6 +185,12 @@ The Recall tests cover policy behavior and AI failure paths, DOM recycling and
 SPA navigation, filtering cadence, sanitization, explicit grades, cross-tab
 reservations, daily caps, stale-card rejection, worker restarts, and ambiguous
 answer recovery. The sample feed exercises the same renderer/content engine.
+Stress tests also cover 1,200 recycled posts, 100 concurrent card requests, and
+50 simultaneous attempts to submit the same mock review. Live X checks exercised
+reveal, skip, show-original, rapid scrolling, For you/Following, two-tab card
+allocation, navigation away/back, and automatic test expiry. A reload
+reservation leak found during those checks is covered by lifecycle regression
+tests.
 
 Key code: `src/recall/content.ts` (feed lifecycle), `card.ts` (study interface),
 `classifier.ts` (policy), `anki.ts` (real reviews), `background.ts` (validated
@@ -196,6 +206,7 @@ upstream Chrome/Firefox builds remain under their original commands.
   [math](https://docs.ankiweb.net/math.html), and
   [text import](https://docs.ankiweb.net/importing/text-files.html)
 - [Chrome extension network requests](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests)
+- [Chrome tab lifecycle events and permissions](https://developer.chrome.com/docs/extensions/reference/api/tabs)
 - [OpenAI structured output](https://developers.openai.com/api/docs/guides/structured-outputs)
 
 MIT licensed, preserving the upstream license and copyright notice.

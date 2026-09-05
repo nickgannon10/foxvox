@@ -104,6 +104,50 @@ test('feed test includes media-only posts, bypasses spacing, and expires in plac
   expect(transport.mock.calls.filter(([r]) => r.type === 'recall:release')).toHaveLength(2);
 });
 
+test('pagehide releases cards and cached-page restoration obtains fresh reservations', async () => {
+  const article = tweet();
+  const transport = fakeTransport();
+  controller = startRecall(transport);
+  await settle();
+  expect(article.style.display).toBe('none');
+  window.dispatchEvent(new Event('pagehide'));
+  await settle();
+  expect(article.style.display).toBe('');
+  expect(document.querySelector('[data-foxvox-recall]')).toBeNull();
+  expect(transport.mock.calls.filter(([r]) => r.type === 'recall:release')).toHaveLength(1);
+  await controller.refreshSettings();
+  await settle();
+  expect(document.querySelector('[data-foxvox-recall]')).toBeNull();
+  window.dispatchEvent(new Event('pageshow'));
+  await settle();
+  expect(article.style.display).toBe('none');
+  expect(transport.mock.calls.filter(([r]) => r.type === 'recall:next')).toHaveLength(2);
+});
+
+test('1200 virtualized posts leave only mounted cards and release every retired reservation', async () => {
+  const transport = fakeTransport(request =>
+    request.type === 'recall:next'
+      ? { ok: true, card: { ...card, cardId: Number(request.postId), leaseId: request.postId } }
+      : undefined
+  );
+  controller = startRecall(transport);
+  for (let batch = 0; batch < 120; batch++) {
+    document.body.replaceChildren();
+    for (let offset = 0; offset < 10; offset++) tweet(String(batch * 10 + offset + 1000));
+    await controller.refreshSettings();
+    for (let turn = 0; turn < 80; turn++) await Promise.resolve();
+    expect(document.querySelectorAll('[data-foxvox-recall]')).toHaveLength(10);
+  }
+  controller.stop();
+  const released = transport.mock.calls.flatMap(([r]) =>
+    r.type === 'recall:release' ? [r.leaseId] : []
+  );
+  expect(released).toHaveLength(1200);
+  expect(new Set(released).size).toBe(1200);
+  expect(document.querySelectorAll('[data-foxvox-recall]')).toHaveLength(0);
+  expect(transport.mock.calls.filter(([r]) => r.type === 'recall:answer')).toHaveLength(0);
+}, 30000);
+
 test('limits real-site filtering to home, excluding profiles, search, messages and status detail', () => {
   for (const hostname of ['x.com', 'www.x.com', 'twitter.com']) {
     expect(isHomeFeedLocation({ hostname, pathname: '/home' })).toBe(true);

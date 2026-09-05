@@ -81,6 +81,7 @@ export const extensionTransport: RecallTransport = async request => {
 export function startRecall(transport: RecallTransport = extensionTransport): RecallController {
   let settings: RecallSettings = { ...DEFAULT_SETTINGS, enabled: false };
   let stopped = false;
+  let pageHidden = false;
   let processing = false;
   let scheduled: ReturnType<typeof setTimeout> | undefined;
   let testExpiryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -108,6 +109,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
     transport !== extensionTransport && document.documentElement.dataset.recallDemo === 'true';
   const eligible = (): boolean =>
     !stopped &&
+    !pageHidden &&
     settings.enabled &&
     (isHomeFeedLocation(window.location) ||
       (demo && !/^(www\.)?(x\.com|twitter\.com)$/.test(window.location.hostname)));
@@ -426,9 +428,22 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
     }
     scan();
   };
+  const onPageHide = (): void => {
+    pageHidden = true;
+    restoreAll();
+    entries.clear();
+    handled.clear();
+    flagged.clear();
+    updateTestBanner();
+  };
+  const onPageShow = (): void => {
+    pageHidden = false;
+    onNavigation();
+  };
   window.addEventListener('popstate', onNavigation);
   window.addEventListener('hashchange', onNavigation);
-  window.addEventListener('pageshow', onNavigation);
+  window.addEventListener('pageshow', onPageShow);
+  window.addEventListener('pagehide', onPageHide);
   const navigationTimer = setInterval(() => {
     if (previousUrl !== window.location.href) onNavigation();
   }, 600);
@@ -492,7 +507,8 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
       clearInterval(settingsTimer);
       window.removeEventListener('popstate', onNavigation);
       window.removeEventListener('hashchange', onNavigation);
-      window.removeEventListener('pageshow', onNavigation);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('pagehide', onPageHide);
       if (typeof chrome !== 'undefined' && chrome.storage?.onChanged)
         chrome.storage.onChanged.removeListener(storageChanged);
       restoreAll();
