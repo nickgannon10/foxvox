@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "allowJs": false },
+  "include": ["src/recall/**/*.ts", "tests/recall/**/*.ts"],
+  "exclude": ["node_modules", "dist-*", "coverage"]
+}

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "FoxVox Recall",
+  "version": "0.1.0",
+  "description": "Trade unwanted X posts for due Anki reviews. Your feed, your learning, your rules.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "http://127.0.0.1/*",
+    "https://api.openai.com/*"
+  ],
+  "background": { "service_worker": "background.bundle.js" },
+  "action": { "default_popup": "popup.html", "default_title": "FoxVox Recall" },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.bundle.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/*"],
+      "matches": ["https://x.com/*", "https://twitter.com/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; connect-src 'self' http://127.0.0.1:8765 https://api.openai.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'"
+  }
+}

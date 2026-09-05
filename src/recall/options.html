@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FoxVox Recall · Settings</title>
+    <link rel="stylesheet" href="options.css" />
+    <script src="options.bundle.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <a class="brand" href="options.html" aria-label="FoxVox Recall settings"
+          ><span class="brand-mark" aria-hidden="true">f<span>↗</span></span
+          ><span>foxvox <strong>recall</strong></span></a
+        >
+        <a class="text-link" href="demo.html" target="_blank" rel="noopener"
+          >Try the sample feed <span aria-hidden="true">↗</span></a
+        >
+      </header>
+      <div class="intro">
+        <p class="eyebrow">A better use of a scroll</p>
+        <h1>Less noise.<br /><span>More recall.</span></h1>
+        <p>
+          Trade distracting posts for a few things worth remembering.<br class="desktop-break" />
+          Your cards. Your rules. Anki does the scheduling.
+        </p>
+      </div>
+
+      <form id="settings-form">
+        <fieldset id="settings-fields" disabled>
+          <legend class="sr-only">Recall settings</legend>
+          <section class="card activation">
+            <div>
+              <h2>Make room for learning</h2>
+              <p>Replace matching posts in your X feed with due Anki cards.</p>
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="enabled" name="enabled" /><span
+                class="switch-track"
+                aria-hidden="true"
+              ></span
+              ><span class="sr-only">Enable FoxVox Recall</span></label
+            >
+          </section>
+
+          <section class="card" aria-labelledby="anki-heading">
+            <div class="section-heading">
+              <span class="step">01</span>
+              <div>
+                <h2 id="anki-heading">Connect your memory</h2>
+                <p>Keep Anki open on this computer while you scroll.</p>
+              </div>
+              <span id="anki-badge" class="badge" role="status">Checking…</span>
+            </div>
+            <div class="connection-box">
+              <div>
+                <strong id="anki-summary">Looking for Anki</strong>
+                <p id="anki-detail">Connecting to AnkiConnect on 127.0.0.1:8765.</p>
+              </div>
+              <button type="button" id="connect-button" class="button secondary">
+                Connect / test
+              </button>
+            </div>
+            <details id="anki-setup">
+              <summary>Set up AnkiConnect</summary>
+              <ol>
+                <li>Open Anki, then choose <strong>Tools → Add-ons → Get Add-ons</strong>.</li>
+                <li>Paste code <code>2055492159</code>, install, and restart Anki.</li>
+                <li>
+                  Click <strong>Connect / test</strong> here. Allow the connection in Anki if
+                  prompted.
+                </li>
+              </ol>
+              <p class="hint">
+                AnkiConnect is a separate, third-party Anki add-on. Recall only talks to it on this
+                computer. It reads due cards and records a review when you choose a rating.
+              </p>
+            </details>
+            <div class="field top-space">
+              <label for="ankiKey">AnkiConnect API key <span class="optional">optional</span></label
+              ><input
+                id="ankiKey"
+                name="ankiKey"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Only if you configured one in AnkiConnect"
+              />
+              <p class="hint">
+                Stored in this browser extension. It must match AnkiConnect’s API key setting.
+              </p>
+            </div>
+            <div class="field">
+              <label for="ankiQuery">Which cards belong in your feed?</label
+              ><input
+                id="ankiQuery"
+                name="ankiQuery"
+                placeholder='All due cards, or a query such as deck:"Learning"'
+                spellcheck="false"
+              />
+              <p class="hint">
+                Use Anki search syntax to narrow the scope. Leave blank for all due cards; Recall
+                always limits this to cards due for review.
+              </p>
+            </div>
+            <div class="two-columns">
+              <div class="field">
+                <label for="mathQuery">Math card search</label
+                ><input id="mathQuery" name="mathQuery" placeholder="tag:math" spellcheck="false" />
+                <p class="hint">Use a tag or deck containing your math cards.</p>
+              </div>
+              <div class="field">
+                <label for="mathEvery">Aim for a math card every…</label>
+                <div class="number-with-unit">
+                  <input
+                    id="mathEvery"
+                    name="mathEvery"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    required
+                  /><span>cards</span>
+                </div>
+                <p class="hint">When math cards are due. Set to 0 to turn off.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="filter-heading">
+            <div class="section-heading">
+              <span class="step">02</span>
+              <div>
+                <h2 id="filter-heading">Choose what makes way</h2>
+                <p>Local rules are a starting point. You can always reveal a replaced post.</p>
+              </div>
+            </div>
+            <label class="check-row"
+              ><input id="filterPolitics" name="filterPolitics" type="checkbox" /><span
+                ><strong>Political posts</strong
+                ><small>Posts matching common political terms.</small></span
+              ></label
+            >
+            <label class="check-row"
+              ><input id="filterPolarizing" name="filterPolarizing" type="checkbox" /><span
+                ><strong>Outrage &amp; engagement bait</strong
+                ><small>Posts matching common inflammatory or bait phrases.</small></span
+              ></label
+            >
+            <div class="two-columns top-space">
+              <div class="field">
+                <label for="blockedTerms">Your blocked phrases</label
+                ><textarea
+                  id="blockedTerms"
+                  name="blockedTerms"
+                  rows="3"
+                  placeholder="One phrase per line, or separated by commas"
+                ></textarea>
+              </div>
+              <div class="field">
+                <label for="protectedAccounts">Always keep these accounts</label
+                ><textarea
+                  id="protectedAccounts"
+                  name="protectedAccounts"
+                  rows="3"
+                  placeholder="@handle, @anotherhandle"
+                  spellcheck="false"
+                ></textarea>
+                <p class="hint">Protected accounts take priority over filters.</p>
+              </div>
+            </div>
+            <div class="field">
+              <label for="contentSpec">Your feed policy</label
+              ><textarea id="contentSpec" name="contentSpec" rows="3"></textarea>
+              <p class="hint">
+                Used by the optional AI filter below. Local rules use the checkboxes and blocked
+                phrases above.
+              </p>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="pace-heading">
+            <div class="section-heading">
+              <span class="step">03</span>
+              <div>
+                <h2 id="pace-heading">Keep it a small habit</h2>
+                <p>A few useful repetitions, woven into the day.</p>
+              </div>
+            </div>
+            <div class="two-columns">
+              <div class="field">
+                <label for="dailyLimit">Daily review limit</label>
+                <div class="number-with-unit">
+                  <input
+                    id="dailyLimit"
+                    name="dailyLimit"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    required
+                  /><span>cards per day</span>
+                </div>
+                <p class="hint">Set to 0 to pause new cards.</p>
+              </div>
+              <div class="field">
+                <label for="minPostGap">Space between cards</label>
+                <div class="number-with-unit">
+                  <input
+                    id="minPostGap"
+                    name="minPostGap"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    required
+                  /><span>posts</span>
+                </div>
+              </div>
+            </div>
+            <p class="hint">
+              Cards appear only when a post matches your filters and Anki has a card due. Again,
+              Hard, Good, and Easy record real reviews in Anki.
+            </p>
+          </section>
+
+          <section class="card ai-card" aria-labelledby="ai-heading">
+            <div class="section-heading">
+              <span class="step">04</span>
+              <div>
+                <h2 id="ai-heading">
+                  A little more context <span class="optional">optional</span>
+                </h2>
+                <p>Use AI for judgments that simple phrase matching cannot make.</p>
+              </div>
+            </div>
+            <label class="check-row"
+              ><input id="aiEnabled" name="aiEnabled" type="checkbox" /><span
+                ><strong>Enable OpenAI classification</strong
+                ><small
+                  >Off by default. Enabling sends tweet text and your feed policy to OpenAI for
+                  classification. API usage may cost money. Your key stays in extension
+                  storage.</small
+                ></span
+              ></label
+            >
+            <div id="ai-fields" class="top-space">
+              <div class="two-columns">
+                <div class="field">
+                  <label for="aiKey">OpenAI API key</label
+                  ><input
+                    id="aiKey"
+                    name="aiKey"
+                    type="password"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="sk-…"
+                  />
+                </div>
+                <div class="field">
+                  <label for="aiModel">Model</label
+                  ><input
+                    id="aiModel"
+                    name="aiModel"
+                    spellcheck="false"
+                    placeholder="gpt-4.1-mini"
+                  />
+                </div>
+              </div>
+              <label class="check-row"
+                ><input id="filterOffTopic" name="filterOffTopic" type="checkbox" /><span
+                  ><strong>Also replace off-topic posts</strong
+                  ><small
+                    >Requires AI to compare a post with your interests. Broad filtering can hide
+                    useful surprises.</small
+                  ></span
+                ></label
+              >
+              <div class="field top-space">
+                <label for="interests">What are you here for?</label
+                ><textarea
+                  id="interests"
+                  name="interests"
+                  rows="2"
+                  placeholder="Mathematics, science, art, thoughtful conversation…"
+                ></textarea>
+              </div>
+            </div>
+            <p id="ai-note" class="hint">
+              AI is off. Tweet text stays in your browser; local filtering still works.
+            </p>
+          </section>
+        </fieldset>
+        <div class="save-bar">
+          <p id="save-status" role="status" aria-live="polite">Loading your settings…</p>
+          <button id="save-button" type="submit" class="button primary" disabled>
+            Save settings <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+      </form>
+      <footer>
+        Built on FoxVox. Powered by your curiosity.<span
+          >Sample feed uses sample cards. Real feed ratings update Anki.</span
+        >
+      </footer>
+    </main>
+  </body>
+</html>

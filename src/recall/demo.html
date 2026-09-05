@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" data-recall-demo="true">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FoxVox Recall — a better kind of scroll</title>
+    <link rel="stylesheet" href="demo.css" />
+  </head>
+  <body>
+    <div class="lab-banner">
+      <span><b>FOXVOX RECALL</b> / INTERACTIVE PREVIEW</span
+      ><span>Sample feed · sample cards · no Anki changes</span>
+    </div>
+    <div class="layout">
+      <aside class="rail">
+        <div class="x-mark" aria-label="X-style feed preview">𝕏</div>
+        <div class="nav-item active">⌂ <span>Home</span></div>
+        <div class="nav-item">⌕ <span>Explore</span></div>
+        <div class="nav-item">♧ <span>Notifications</span></div>
+        <div class="nav-item">✉ <span>Messages</span></div>
+        <div class="nav-item">♙ <span>Profile</span></div>
+        <div class="rail-note">
+          <div class="spark">✦</div>
+          <strong>A better kind<br />of scroll.</strong>
+          <p>Your attention is yours.<br />Make a little of it stick.</p>
+        </div>
+        <div class="profile-dot">
+          N <span>Your feed<br /><small>With a little intention</small></span>
+        </div>
+      </aside>
+      <main>
+        <header class="feed-header">
+          <div>
+            <h1>Home</h1>
+            <span class="live"><i></i> Recall active</span>
+          </div>
+          <div class="tabs"><span class="selected">For you</span><span>Following</span></div>
+        </header>
+        <div class="composer">
+          <div class="avatar lavender">N</div>
+          <div>
+            A little more signal. A little less noise.<small
+              >This is an interactive feed preview.</small
+            >
+          </div>
+        </div>
+        <div id="feed" aria-label="Sample X feed"></div>
+        <footer class="feed-end">You’re caught up. Go use what you know. <span>↗</span></footer>
+      </main>
+      <aside class="sidebar">
+        <div class="edition">YOUR FEED, RECLAIMED <span>01 / 2026</span></div>
+        <h2>Less outrage.<br />More recall.</h2>
+        <p class="intro">Keep the good posts. Trade the noise for a small moment of learning.</p>
+        <section class="session">
+          <div class="section-label">TODAY’S LITTLE WINS <span>✦</span></div>
+          <div class="review-count">
+            <strong id="review-count">0</strong><span>/ 12<br />sample reviews</span>
+          </div>
+          <div class="progress"><div id="progress-bar"></div></div>
+          <p>Again, Hard, Good, Easy.<br />Anki owns the schedule in live mode.</p>
+        </section>
+        <section class="policy">
+          <div class="section-label">YOUR ATTENTION SPEC</div>
+          <div><span>Politics</span><b>Replace</b></div>
+          <div><span>Outrage & bait</span><b>Replace</b></div>
+          <div><span>Curiosity & useful ideas</span><b class="keep">Keep</b></div>
+          <div><span>A math challenge</span><b class="keep">Every 3 cards</b></div>
+        </section>
+        <section class="try">
+          <div class="section-label">TRY IT OUT</div>
+          <p>Reveal an answer, rate a card, or bring back the original post.</p>
+          <button id="add-post" type="button">Add another noisy post <span>＋</span></button
+          ><button id="toggle-offline" type="button">Simulate Anki offline</button
+          ><button id="reset-demo" type="button">Reset preview</button>
+          <p id="demo-status" role="status">Preview only. Your collection stays untouched.</p>
+        </section>
+        <a class="settings-link" href="options.html">Open extension settings ↗</a>
+        <p class="local-note">
+          Live reviews connect to Anki on your computer. Optional AI is off by default.
+        </p>
+      </aside>
+    </div>
+    <script src="demo.bundle.js"></script>
+  </body>
+</html>

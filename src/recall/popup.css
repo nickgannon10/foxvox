@@ -1,0 +1,236 @@
+:root {
+  --ink: #242535;
+  --muted: #6a6c7c;
+  --purple: #7460b3;
+  --lilac: #eee9fc;
+  --line: #e4e3eb;
+  --paper: #f7f6fa;
+  --green: #35735c;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  width: 340px;
+  color: var(--ink);
+  background: var(--paper);
+  font:
+    13px/1.5 -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+.popup-shell {
+  padding: 23px;
+}
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.popup-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.55px;
+}
+.popup-brand strong {
+  font-weight: 400;
+  color: var(--muted);
+}
+.popup-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 34px;
+  background: var(--ink);
+  color: #e9dcff;
+  border-radius: 9px;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 24px;
+  letter-spacing: -4px;
+  padding-right: 4px;
+}
+.popup-switch {
+  width: 38px;
+  height: 23px;
+  position: relative;
+  cursor: pointer;
+  flex: none;
+}
+.popup-switch input {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+}
+.popup-switch > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 99px;
+  background: #aaa4b9;
+  pointer-events: none;
+}
+.popup-switch > span:after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.15s;
+}
+.popup-switch input:checked + span {
+  background: var(--purple);
+}
+.popup-switch input:checked + span:after {
+  transform: translateX(15px);
+}
+.popup-switch input:disabled + span {
+  opacity: 0.5;
+}
+.popup-switch input:focus-visible + span,
+a:focus-visible {
+  outline: 3px solid #ad98d4;
+  outline-offset: 3px;
+}
+.popup-eyebrow {
+  color: var(--muted);
+  font-size: 10px;
+  margin: 18px 0 20px;
+}
+.today {
+  padding: 20px;
+  background: var(--lilac);
+  border: 1px solid #e2d9f5;
+  border-radius: 13px;
+  position: relative;
+}
+.today > div:first-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.today strong {
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: -2px;
+  font-weight: 550;
+}
+.today > div > span {
+  font-size: 11px;
+  margin-top: 7px;
+  color: #76698e;
+}
+.today-glyph {
+  position: absolute;
+  right: 20px;
+  top: 16px;
+  font-size: 42px;
+  color: #b8a4df;
+  font-weight: 300;
+}
+.progress-track {
+  height: 3px;
+  background: #dcd2ed;
+  margin: 20px 0 8px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-track > div {
+  height: 100%;
+  width: 0;
+  background: #8a71ba;
+  transition: width 0.25s;
+}
+.today p {
+  font-size: 10px;
+  color: #76698e;
+  margin: 0;
+}
+.anki-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 21px 0 0;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #aaa5b2;
+  margin-top: 5px;
+  flex: none;
+}
+.status-dot.connected {
+  background: #65a685;
+}
+.status-dot.disconnected {
+  background: #c7955d;
+}
+.anki-status strong {
+  font-weight: 600;
+  font-size: 12px;
+}
+.anki-status p {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+.popup-message {
+  font-size: 10px;
+  color: var(--muted);
+  min-height: 30px;
+  margin: 12px 0;
+}
+.popup-message.error {
+  color: #a33745;
+}
+.popup-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 45px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 10px 14px;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.popup-button.primary {
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  color: white;
+}
+.popup-button.primary:hover {
+  background: #3a3a51;
+}
+.popup-button.secondary {
+  background: white;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.popup-button.secondary:hover {
+  background: #f1edf8;
+}
+.popup-footer {
+  font-size: 9px;
+  color: #93919f;
+  text-align: center;
+  margin: 11px 0 0;
+}

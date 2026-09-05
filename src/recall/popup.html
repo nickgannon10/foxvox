@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FoxVox Recall</title>
+    <link rel="stylesheet" href="popup.css" />
+    <script src="popup.bundle.js" defer></script>
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="popup-header">
+        <a class="popup-brand" href="options.html" target="_blank" rel="noopener"
+          ><span class="popup-mark" aria-hidden="true">f↗</span
+          ><span>foxvox <strong>recall</strong></span></a
+        ><label class="popup-switch"
+          ><input
+            id="popup-enabled"
+            type="checkbox"
+            aria-label="Enable FoxVox Recall"
+            disabled /><span aria-hidden="true"></span
+        ></label>
+      </header>
+      <p class="popup-eyebrow">A little less scrolling. A little more knowing.</p>
+      <section class="today">
+        <div>
+          <strong id="reviewed-count">—</strong
+          ><span id="reviewed-label">cards reviewed today</span>
+        </div>
+        <span class="today-glyph" aria-hidden="true">✳</span>
+        <div class="progress-track" aria-hidden="true"><div id="review-progress"></div></div>
+        <p id="daily-progress">Loading your daily progress…</p>
+      </section>
+      <div class="anki-status">
+        <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+        <div>
+          <strong id="popup-anki-status">Checking Anki…</strong>
+          <p id="popup-anki-detail">Your reviews stay with your cards.</p>
+        </div>
+      </div>
+      <p id="popup-message" class="popup-message" role="status" aria-live="polite">Loading…</p>
+      <a
+        id="open-options"
+        class="popup-button primary"
+        href="options.html"
+        target="_blank"
+        rel="noopener"
+        >Tune your feed <span aria-hidden="true">↗</span></a
+      >
+      <a
+        id="open-demo"
+        class="popup-button secondary"
+        href="demo.html"
+        target="_blank"
+        rel="noopener"
+        >Try the sample feed</a
+      >
+      <p class="popup-footer">Sample cards. No changes to Anki.</p>
+    </main>
+  </body>
+</html>

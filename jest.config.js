@@ -1,3 +1,5 @@
+import recall from './jest.recall.config.js';
+
 export default {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
@@ -14,6 +16,7 @@ export default {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   projects: [
+    { ...recall, displayName: 'recall' },
     {
       displayName: 'light',
       testMatch: ['<rootDir>/tests/light/**/*.test.ts'],

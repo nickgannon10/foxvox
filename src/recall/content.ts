@@ -1,0 +1,433 @@
+import { createRecallCard } from './card';
+import { DEFAULT_SETTINGS } from './types';
+import type {
+  FeedPost,
+  FilterDecision,
+  RecallSettings,
+  RecallTransport,
+  ReviewCard,
+} from './types';
+
+interface PostEntry {
+  article: HTMLElement;
+  post: FeedPost;
+  fingerprint: string;
+  visible: boolean;
+  state: 'waiting' | 'working' | 'kept' | 'replaced';
+  version: number;
+  host?: HTMLElement;
+  card?: ReviewCard;
+  originalDisplay?: string;
+  originalPriority?: string;
+}
+
+export interface RecallController {
+  stop(): void;
+  refreshSettings(): Promise<void>;
+}
+
+export function isHomeFeedLocation(location: Pick<Location, 'hostname' | 'pathname'>): boolean {
+  return (
+    /^(www\.)?(x\.com|twitter\.com)$/.test(location.hostname) &&
+    /^\/home\/?$/.test(location.pathname)
+  );
+}
+
+/** Read only the outer tweet, and use its timestamp/status link as its stable identity. */
+export function readFeedPost(article: HTMLElement): FeedPost | null {
+  const texts = Array.from(article.querySelectorAll<HTMLElement>('[data-testid="tweetText"]'));
+  const textNode = texts.find(node => node.closest('article[data-testid="tweet"]') === article);
+  const text = textNode?.textContent?.trim();
+  if (!text) return null;
+  const links = Array.from(
+    article.querySelectorAll<HTMLAnchorElement>('a[href*="/status/"]')
+  ).filter(node => node.closest('article[data-testid="tweet"]') === article);
+  const timestampLink = links.find(link => link.querySelector('time')) || links[0];
+  if (!timestampLink) return null;
+  const status = timestampLink
+    .getAttribute('href')
+    ?.match(/\/(?:i\/web|([A-Za-z0-9_]+))\/status\/(\d+)/);
+  if (!status) return null;
+  const authorRoot = article.querySelector('[data-testid="User-Name"]');
+  const authorLinks = Array.from(authorRoot?.querySelectorAll<HTMLAnchorElement>('a[href]') || []);
+  const profile = authorLinks
+    .map(link => link.getAttribute('href')?.match(/^\/([A-Za-z0-9_]+)\/?$/)?.[1])
+    .find(Boolean);
+  return { id: status[2], text: text.slice(0, 12000), author: profile || status[1] || '' };
+}
+
+const fingerprint = (post: FeedPost): string => `${post.id}\u0000${post.author}\u0000${post.text}`;
+
+export const extensionTransport: RecallTransport = async request => {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage)
+    return { ok: false, error: 'FoxVox Recall is not connected to its extension.' };
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage(request, response => {
+      if (chrome.runtime.lastError)
+        resolve({
+          ok: false,
+          error:
+            chrome.runtime.lastError.message || 'The extension is unavailable. Reload this page.',
+        });
+      else
+        resolve(
+          response || { ok: false, error: 'No response from the extension. Reload this page.' }
+        );
+    });
+  });
+};
+
+/** A supplied transport and explicit demo marker enable the local, isolated feed fixture. */
+export function startRecall(transport: RecallTransport = extensionTransport): RecallController {
+  let settings: RecallSettings = { ...DEFAULT_SETTINGS, enabled: false };
+  let stopped = false;
+  let processing = false;
+  let scheduled: ReturnType<typeof setTimeout> | undefined;
+  let settingsEpoch = 0;
+  let seenSinceReplacement = DEFAULT_SETTINGS.minPostGap;
+  let previousUrl = window.location.href;
+  const entries = new Map<HTMLElement, PostEntry>();
+  // Remember a user dismissal across virtualized tweet nodes, but not across page reloads.
+  const dismissed = new Set<string>();
+  const handled = new Set<string>();
+  // Virtualized tweets can return after their first card was released or reviewed.
+  // Preserve the filter decision separately so returning posts stay filtered.
+  const flagged = new Map<string, FilterDecision>();
+  const rememberFlagged = (key: string, decision: FilterDecision): void => {
+    if (flagged.size >= 1000) flagged.delete(flagged.keys().next().value!);
+    flagged.set(key, decision);
+  };
+  const remember = (set: Set<string>, key: string): void => {
+    if (set.size >= 1000) set.delete(set.values().next().value!);
+    set.add(key);
+  };
+  const demo =
+    transport !== extensionTransport && document.documentElement.dataset.recallDemo === 'true';
+  const eligible = (): boolean =>
+    !stopped &&
+    settings.enabled &&
+    (isHomeFeedLocation(window.location) ||
+      (demo && !/^(www\.)?(x\.com|twitter\.com)$/.test(window.location.hostname)));
+
+  function release(entry: PostEntry): void {
+    if (!entry.card) return;
+    const leaseId = entry.card.leaseId;
+    entry.card = undefined;
+    void transport({ type: 'recall:release', leaseId }).catch(() => undefined);
+  }
+
+  function restore(entry: PostEntry, keep = false): void {
+    entry.version++;
+    release(entry);
+    entry.host?.remove();
+    entry.host = undefined;
+    if (entry.originalDisplay !== undefined) {
+      if (entry.originalDisplay)
+        entry.article.style.setProperty(
+          'display',
+          entry.originalDisplay,
+          entry.originalPriority || ''
+        );
+      else entry.article.style.removeProperty('display');
+      entry.originalDisplay = undefined;
+      entry.originalPriority = undefined;
+    }
+    entry.state = keep ? 'kept' : 'waiting';
+    intersection?.unobserve(entry.article);
+  }
+
+  function restoreAll(): void {
+    for (const entry of entries.values()) restore(entry);
+  }
+
+  function current(entry: PostEntry, version: number): boolean {
+    if (
+      !eligible() ||
+      !entry.article.isConnected ||
+      entry.version !== version ||
+      entries.get(entry.article) !== entry
+    )
+      return false;
+    const latest = readFeedPost(entry.article);
+    return !!latest && fingerprint(latest) === entry.fingerprint;
+  }
+
+  function show(
+    entry: PostEntry,
+    decision: Parameters<typeof createRecallCard>[0]['decision'],
+    card: ReviewCard | null,
+    message?: string
+  ): void {
+    entry.card = card || undefined;
+    const dismiss = (): void => {
+      remember(dismissed, entry.post.id);
+      restore(entry, true);
+      // Bring the restored tweet into the same location, without stealing keyboard focus.
+      entry.article
+        .querySelector<HTMLElement>('a[href], button, [tabindex]')
+        ?.focus({ preventScroll: true });
+    };
+    entry.host = createRecallCard({
+      demo,
+      decision,
+      card,
+      message,
+      onAnswer: rating =>
+        card
+          ? transport({ type: 'recall:answer', leaseId: card.leaseId, rating })
+          : Promise.resolve({ ok: false, error: 'No card is available.' }),
+      onShowOriginal: dismiss,
+      onSkip: dismiss,
+      onReviewed: () => {
+        entry.card = undefined;
+      },
+    });
+    entry.originalDisplay = entry.article.style.getPropertyValue('display');
+    entry.originalPriority = entry.article.style.getPropertyPriority('display');
+    entry.article.before(entry.host);
+    entry.article.style.setProperty('display', 'none', 'important');
+    entry.state = 'replaced';
+    if (card) seenSinceReplacement = 0;
+  }
+
+  async function processVisible(): Promise<void> {
+    if (processing || !eligible()) return;
+    processing = true;
+    try {
+      // Serial reservations preserve feed order and avoid duplicate leases. Only nearby
+      // posts enter this loop; no full-timeline AI requests or scroll interception.
+      while (eligible()) {
+        const candidates = Array.from(entries.values()).filter(
+          entry => entry.state === 'waiting' && entry.visible && entry.article.isConnected
+        );
+        candidates.sort((a, b) =>
+          a.article.compareDocumentPosition(b.article) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+        );
+        const entry = candidates[0];
+        if (!entry) break;
+        const version = entry.version;
+        entry.state = 'working';
+        if (dismissed.has(entry.post.id)) {
+          entry.state = 'kept';
+          continue;
+        }
+        const previousDecision = flagged.get(entry.fingerprint);
+        if (previousDecision) {
+          show(
+            entry,
+            previousDecision,
+            null,
+            'Still filtered by your preferences. You have already seen this detour.'
+          );
+          continue;
+        }
+        if (handled.has(entry.fingerprint)) {
+          entry.state = 'kept';
+          continue;
+        }
+        const withinGap = seenSinceReplacement < settings.minPostGap;
+        seenSinceReplacement++;
+        try {
+          const result = await transport({ type: 'recall:classify', post: entry.post });
+          if (!current(entry, version)) continue;
+          if (!result.ok || !result.decision?.replace) {
+            entry.state = 'kept';
+            remember(handled, entry.fingerprint);
+            continue;
+          }
+          rememberFlagged(entry.fingerprint, result.decision);
+          if (withinGap) {
+            show(
+              entry,
+              result.decision,
+              null,
+              'Filtered by your rules. The next review will appear after a few more posts.'
+            );
+            continue;
+          }
+          const next = await transport({ type: 'recall:next', postId: entry.post.id });
+          if (!current(entry, version)) {
+            if (next.card)
+              void transport({ type: 'recall:release', leaseId: next.card.leaseId }).catch(
+                () => undefined
+              );
+            continue;
+          }
+          show(
+            entry,
+            result.decision,
+            next.ok ? next.card || null : null,
+            next.message || next.error
+          );
+        } catch {
+          // A failed classifier must not decide what to hide. Leave the tweet intact.
+          if (current(entry, version)) entry.state = 'kept';
+        }
+      }
+    } finally {
+      processing = false;
+    }
+  }
+
+  const intersection =
+    typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver(
+          updates => {
+            for (const update of updates) {
+              const entry = entries.get(update.target as HTMLElement);
+              if (entry) entry.visible = update.isIntersecting;
+            }
+            void processVisible();
+          },
+          { rootMargin: '150px 0px', threshold: 0.01 }
+        )
+      : undefined;
+
+  function scan(): void {
+    if (stopped) return;
+    if (!eligible()) {
+      restoreAll();
+      return;
+    }
+    for (const [article, entry] of entries) {
+      const post = article.isConnected ? readFeedPost(article) : null;
+      if (
+        entry.host &&
+        !entry.host.isConnected &&
+        post &&
+        fingerprint(post) === entry.fingerprint
+      ) {
+        restore(entry);
+        const bounds = article.getBoundingClientRect();
+        entry.visible =
+          !intersection || (bounds.bottom >= -150 && bounds.top <= window.innerHeight + 150);
+        intersection?.observe(article);
+      }
+      if (!post || fingerprint(post) !== entry.fingerprint) {
+        restore(entry);
+        intersection?.unobserve(article);
+        entries.delete(article);
+      }
+    }
+    document.querySelectorAll<HTMLElement>('article[data-testid="tweet"]').forEach(article => {
+      // Avoid tweet previews in dialogs and nested quoted material.
+      if (
+        entries.has(article) ||
+        article.closest('[role="dialog"]') ||
+        article.parentElement?.closest('article[data-testid="tweet"]')
+      )
+        return;
+      const post = readFeedPost(article);
+      if (!post) return;
+      const bounds = article.getBoundingClientRect();
+      const visible =
+        !intersection || (bounds.bottom >= -150 && bounds.top <= window.innerHeight + 150);
+      const entry: PostEntry = {
+        article,
+        post,
+        fingerprint: fingerprint(post),
+        visible,
+        state: 'waiting',
+        version: 0,
+      };
+      entries.set(article, entry);
+      intersection?.observe(article);
+    });
+    void processVisible();
+  }
+
+  function scheduleScan(): void {
+    if (stopped || scheduled) return;
+    scheduled = setTimeout(() => {
+      scheduled = undefined;
+      scan();
+    }, 80);
+  }
+
+  const observer = new MutationObserver(scheduleScan);
+  observer.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['href'],
+  });
+  const onNavigation = (): void => {
+    if (previousUrl !== window.location.href) {
+      previousUrl = window.location.href;
+      // Pending responses become stale even if the browser returns home quickly.
+      restoreAll();
+      entries.clear();
+      handled.clear();
+      flagged.clear();
+      seenSinceReplacement = settings.minPostGap;
+    }
+    scan();
+  };
+  window.addEventListener('popstate', onNavigation);
+  window.addEventListener('hashchange', onNavigation);
+  window.addEventListener('pageshow', onNavigation);
+  const navigationTimer = setInterval(() => {
+    if (previousUrl !== window.location.href) onNavigation();
+  }, 600);
+
+  async function refreshSettings(): Promise<void> {
+    const epoch = ++settingsEpoch;
+    try {
+      const response = await transport({ type: 'recall:settings' });
+      if (stopped || epoch !== settingsEpoch) return;
+      if (response.ok && response.settings) {
+        const wasEnabled = settings.enabled;
+        const changed = JSON.stringify(settings) !== JSON.stringify(response.settings);
+        settings = response.settings;
+        if (changed) {
+          restoreAll();
+          entries.clear();
+          handled.clear();
+          flagged.clear();
+          seenSinceReplacement = settings.minPostGap;
+        }
+        if (!settings.enabled) restoreAll();
+        if (!wasEnabled && settings.enabled) seenSinceReplacement = settings.minPostGap;
+      }
+    } catch {
+      // No settings connection means the initial state stays safely disabled.
+    }
+    scan();
+  }
+  const storageChanged = (): void => {
+    void refreshSettings();
+  };
+  if (typeof chrome !== 'undefined' && chrome.storage?.onChanged)
+    chrome.storage.onChanged.addListener(storageChanged);
+  const settingsTimer = setInterval(() => {
+    void refreshSettings();
+  }, 30000);
+  void refreshSettings();
+  return {
+    refreshSettings,
+    stop() {
+      stopped = true;
+      settingsEpoch++;
+      observer.disconnect();
+      intersection?.disconnect();
+      if (scheduled) clearTimeout(scheduled);
+      clearInterval(navigationTimer);
+      clearInterval(settingsTimer);
+      window.removeEventListener('popstate', onNavigation);
+      window.removeEventListener('hashchange', onNavigation);
+      window.removeEventListener('pageshow', onNavigation);
+      if (typeof chrome !== 'undefined' && chrome.storage?.onChanged)
+        chrome.storage.onChanged.removeListener(storageChanged);
+      restoreAll();
+      entries.clear();
+    },
+  };
+}
+
+if (
+  typeof chrome !== 'undefined' &&
+  chrome.runtime?.id &&
+  /^(www\.)?(x\.com|twitter\.com)$/.test(window.location.hostname)
+)
+  startRecall();

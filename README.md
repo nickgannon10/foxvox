@@ -1,5 +1,10 @@
 # FoxVox: One Click to Alter Reality
 
+> **FoxVox Recall:** This fork adds an X → Anki extension that replaces unwanted
+> feed posts with due review cards and math practice. See [RECALL.md](RECALL.md)
+> for setup, the interactive preview, architecture, and current limitations.
+> Build it with `npm run build:recall` and load `dist-recall-chrome`.
+
 FoxVox is an open-source Chrome extension powered by GPT-4o. It demonstrates how
 AI can be used to subtly manipulate the content you consume. It can manipulate
 how we see political figures, view controversial policies, and even slant entire
