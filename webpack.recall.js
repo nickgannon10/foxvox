@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import MinimizePlugin from 'minimizer-webpack-plugin';
 
 export default {
   entry: Object.fromEntries(
@@ -10,6 +11,15 @@ export default {
   ),
   output: { path: path.resolve('dist-recall-chrome'), filename: '[name].bundle.js', clean: true },
   devtool: false,
+  optimization: {
+    minimizer: [
+      new MinimizePlugin({
+        // Preserve Unicode at runtime, but keep literal noncharacters such as
+        // KaTeX's U+FFFF out of files checked by Chrome's UTF-8 validator.
+        terserOptions: { compress: { passes: 2 }, format: { ascii_only: true } },
+      }),
+    ],
+  },
   module: {
     rules: [
       {
