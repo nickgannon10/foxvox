@@ -28,6 +28,7 @@
       </div>
 
       <form id="settings-form">
+        <input type="hidden" id="testModeUntil" name="testModeUntil" value="0" />
         <fieldset id="settings-fields" disabled>
           <legend class="sr-only">Recall settings</legend>
           <section class="card activation">
@@ -42,6 +43,26 @@
               ></span
               ><span class="sr-only">Enable FoxVox Recall</span></label
             >
+          </section>
+
+          <section class="card" aria-labelledby="feed-test-heading">
+            <div class="section-heading">
+              <div>
+                <h2 id="feed-test-heading">See it working</h2>
+                <p>Temporarily try an Anki card in place of every home-feed post.</p>
+              </div>
+            </div>
+            <button type="button" id="feed-test-button" class="button secondary">
+              Replace every post for 5 minutes
+            </button>
+            <p id="feed-test-status" class="hint" role="status">
+              Bypasses filters, protected accounts, and spacing. Your due cards and daily limit
+              still apply. Normal filters return automatically.
+            </p>
+            <p class="hint">
+              After starting, reload X Home. A countdown in the feed confirms that the test is
+              running. Ratings still record real Anki reviews.
+            </p>
           </section>
 
           <section class="card" aria-labelledby="anki-heading">

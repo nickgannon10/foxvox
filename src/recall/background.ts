@@ -3,6 +3,7 @@ import { classifyPost } from './classifier';
 import { loadSettings, LocalStorage, publicSettings, saveSettings } from './settings';
 import {
   DEFAULT_SETTINGS,
+  FEED_TEST_DURATION_MS,
   FeedPost,
   FilterDecision,
   RecallRequest,
@@ -21,6 +22,8 @@ function shortString(value: unknown, maximum: number): value is string {
 export function validRequest(message: unknown): message is RecallRequest {
   if (!object(message) || typeof message.type !== 'string') return false;
   switch (message.type) {
+    case 'recall:testMode':
+      return typeof message.enabled === 'boolean';
     case 'recall:settings':
     case 'recall:stats':
       return true;
@@ -112,12 +115,32 @@ export function createMessageHandler(options: MessageHandlerOptions) {
       const caller = authorizeSender(sender, options.extensionId);
       if (!validRequest(message)) throw new AnkiError('Invalid Recall request.');
       if (
-        ['recall:saveSettings', 'recall:status'].includes(message.type) &&
+        (['recall:saveSettings', 'recall:status'].includes(message.type) ||
+          (message.type === 'recall:testMode' && message.enabled)) &&
         !caller.extensionPage
       ) {
         throw new AnkiError('Open the extension settings to change configuration or connect Anki.');
       }
       switch (message.type) {
+        case 'recall:testMode': {
+          const settings = await loadSettings(options.storage);
+          if (message.enabled && !settings.enabled)
+            throw new AnkiError(
+              'Enable Recall and save your settings before starting the feed test.'
+            );
+          return {
+            ok: true,
+            settings: publicSettings(
+              await saveSettings(
+                {
+                  ...settings,
+                  testModeUntil: message.enabled ? Date.now() + FEED_TEST_DURATION_MS : 0,
+                },
+                options.storage
+              )
+            ),
+          };
+        }
         case 'recall:settings': {
           const settings = await loadSettings(options.storage);
           return { ok: true, settings: caller.extensionPage ? settings : publicSettings(settings) };

@@ -50,6 +50,14 @@ This build targets Chrome Manifest V3. Reload the extension after rebuilding and
 reload existing X tabs. Removing or disabling the extension and reloading X
 restores the normal feed. The popup's pause switch restores posts in place.
 
+If Anki connects but no cards appear, open **See it working** in settings and
+click **Replace every post for 5 minutes**, then reload X Home. The test
+bypasses filters, protected accounts, and card spacing, including posts without
+text. A countdown in the feed shows that it is active and how many posts were
+detected. Due-card availability and the daily review cap still apply; ratings
+still submit real reviews. **Stop test** or the five-minute timeout restores
+normal filtering and releases ungraded cards. No AI API key is needed.
+
 The automated browser's security policy blocked opening Chrome's extension
 manager during development, so loading the unpacked extension and the first live
 X review remain manual. The browser preview was exercised; AnkiConnect API v6,
@@ -66,7 +74,9 @@ comprehensive politics or polarization detector: ambiguous wording, images,
 sarcasm, and multilingual posts can be missed; useful posts can be false
 positives.
 
-- **Protected accounts** always win. Enter handles separated by commas or lines.
+- **Protected accounts** always win during normal filtering. The temporary
+  replace-every-post test bypasses them. Enter handles separated by commas or
+  lines.
 - **Blocked terms** match literal phrases at word boundaries, not regular
   expressions. Enter one per line or separate with commas.
 - **AI check** is optional and off by default. Enabling it with an OpenAI key

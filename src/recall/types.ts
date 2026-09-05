@@ -1,7 +1,8 @@
 export type Rating = 1 | 2 | 3 | 4;
-export type FilterReason = 'politics' | 'polarizing' | 'off-topic' | 'custom';
+export type FilterReason = 'politics' | 'polarizing' | 'off-topic' | 'custom' | 'test';
 export interface RecallSettings {
   enabled: boolean;
+  testModeUntil: number;
   filterPolitics: boolean;
   filterPolarizing: boolean;
   filterOffTopic: boolean;
@@ -21,6 +22,7 @@ export interface RecallSettings {
 }
 export const DEFAULT_SETTINGS: RecallSettings = {
   enabled: true,
+  testModeUntil: 0,
   filterPolitics: true,
   filterPolarizing: true,
   filterOffTopic: false,
@@ -39,6 +41,10 @@ export const DEFAULT_SETTINGS: RecallSettings = {
   contentSpec:
     'Keep useful ideas, curiosity, and thoughtful disagreement. Replace partisan politics, personal attacks, outrage bait, and engagement bait.',
 };
+export const FEED_TEST_DURATION_MS = 5 * 60 * 1000;
+export function isFeedTestActive(settings: RecallSettings, now = Date.now()): boolean {
+  return settings.enabled && settings.testModeUntil > now;
+}
 export interface FeedPost {
   id: string;
   text: string;
@@ -74,6 +80,7 @@ export interface RecallStatus {
 export type RecallRequest =
   | { type: 'recall:settings' }
   | { type: 'recall:saveSettings'; settings: RecallSettings }
+  | { type: 'recall:testMode'; enabled: boolean }
   | { type: 'recall:status'; requestPermission?: boolean }
   | { type: 'recall:classify'; post: FeedPost }
   | { type: 'recall:next'; postId: string }

@@ -4,6 +4,7 @@ import {
   RecallResponse,
   RecallSettings,
   RecallStatus,
+  isFeedTestActive,
 } from './types';
 
 const form = document.getElementById('settings-form') as HTMLFormElement;
@@ -11,9 +12,47 @@ const fields = document.getElementById('settings-fields') as HTMLFieldSetElement
 const saveButton = document.getElementById('save-button') as HTMLButtonElement;
 const connectButton = document.getElementById('connect-button') as HTMLButtonElement;
 const saveStatus = document.getElementById('save-status') as HTMLElement;
+const feedTestButton = document.getElementById('feed-test-button') as HTMLButtonElement;
+const feedTestStatus = document.getElementById('feed-test-status') as HTMLElement;
 let loaded = false;
 let savedSettings: RecallSettings = { ...DEFAULT_SETTINGS };
 let editRevision = 0;
+
+function renderFeedTest(): void {
+  const active = isFeedTestActive(savedSettings);
+  feedTestButton.textContent = active
+    ? 'Stop test and restore normal filters'
+    : 'Replace every post for 5 minutes';
+  feedTestStatus.textContent = active
+    ? `Test active for ${Math.ceil((savedSettings.testModeUntil - Date.now()) / 1000)} more seconds. Reload X Home; all posts qualify while due cards and review slots remain.`
+    : 'Bypasses filters, protected accounts, and spacing. Your due cards and daily limit still apply. Normal filters return automatically.';
+}
+
+async function toggleFeedTest(): Promise<void> {
+  if (!loaded) return;
+  feedTestButton.disabled = true;
+  try {
+    const response = await send({
+      type: 'recall:testMode',
+      enabled: !isFeedTestActive(savedSettings),
+    });
+    if (!response.settings) throw new Error('Reload settings and try the feed test again.');
+    // Only the test timestamp changed; leave all unsaved form edits and credentials alone.
+    savedSettings.testModeUntil = response.settings.testModeUntil;
+    savedSettings.enabled = response.settings.enabled;
+    field('testModeUntil').value = String(savedSettings.testModeUntil);
+    renderFeedTest();
+    setNotice(
+      isFeedTestActive(savedSettings)
+        ? 'Feed test started. Reload X Home to see it. Other unsaved changes are not applied.'
+        : 'Feed test stopped. Your normal filters are restored.'
+    );
+  } catch (error) {
+    setNotice(errorMessage(error), true);
+  } finally {
+    feedTestButton.disabled = false;
+  }
+}
 
 function field<K extends keyof RecallSettings>(key: K): HTMLInputElement | HTMLTextAreaElement {
   return document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
@@ -120,6 +159,7 @@ async function save(requestPermission = false): Promise<void> {
     const settings = readSettings();
     const response = await send({ type: 'recall:saveSettings', settings });
     savedSettings = response.settings || settings;
+    renderFeedTest();
     // Status reads deliberately never repopulate the form: edits made during a check stay intact.
     setNotice('Settings saved. Checking Anki…');
     const connected = await checkStatus(requestPermission);
@@ -150,6 +190,10 @@ form.addEventListener('input', () => {
   if (loaded) setNotice('You have unsaved changes.');
 });
 field('aiEnabled').addEventListener('change', updateAiFields);
+feedTestButton.addEventListener('click', () => {
+  void toggleFeedTest();
+});
+setInterval(renderFeedTest, 1000);
 
 async function initialize(): Promise<void> {
   try {
@@ -158,6 +202,7 @@ async function initialize(): Promise<void> {
       throw new Error('Settings could not be loaded. Reload this page to try again.');
     savedSettings = { ...DEFAULT_SETTINGS, ...response.settings };
     populate(savedSettings);
+    renderFeedTest();
     loaded = true;
     fields.disabled = false;
     saveButton.disabled = false;

@@ -3,6 +3,31 @@ import { DEFAULT_SETTINGS } from '../../src/recall/types';
 
 const post = (text: string, author = 'curious') => ({ id: '123', author, text });
 describe('Feed policy', () => {
+  it('temporarily replaces every post without calling AI, then restores the policy', async () => {
+    const fetcher = jest.fn();
+    global.fetch = fetcher;
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      testModeUntil: Date.now() + 300000,
+      protectedAccounts: '@curious',
+      aiEnabled: true,
+      aiKey: 'test-only',
+    };
+    expect(await classifyPost(post('An ordinary lovely day'), settings)).toMatchObject({
+      replace: true,
+      reason: 'test',
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(
+      classifyLocally(post('An ordinary lovely day'), {
+        ...settings,
+        testModeUntil: Date.now() - 1,
+      }).replace
+    ).toBe(false);
+    expect(
+      classifyLocally(post('An ordinary lovely day'), { ...settings, enabled: false }).replace
+    ).toBe(false);
+  });
   it('catches politics regardless of party', () => {
     for (const text of [
       'Republicans launch election campaign',

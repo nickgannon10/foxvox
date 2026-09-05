@@ -1,6 +1,7 @@
 import { createRecallCard, safeCardContent } from '../../src/recall/card';
 import { isHomeFeedLocation, readFeedPost, startRecall } from '../../src/recall/content';
 import { DEFAULT_SETTINGS } from '../../src/recall/types';
+import { classifyLocally } from '../../src/recall/classifier';
 import type { RecallController } from '../../src/recall/content';
 import type {
   RecallRequest,
@@ -74,6 +75,33 @@ afterEach(() => {
   jest.useRealTimers();
   jest.restoreAllMocks();
   delete document.documentElement.dataset.recallDemo;
+});
+
+test('feed test includes media-only posts, bypasses spacing, and expires in place', async () => {
+  const initial = { ...DEFAULT_SETTINGS, minPostGap: 100, testModeUntil: Date.now() + 2000 };
+  const first = tweet('111', 'A calm morning');
+  const second = tweet('222', '');
+  expect(readFeedPost(second)).toBeNull();
+  const transport = fakeTransport(request => {
+    if (request.type === 'recall:settings') return { ok: true, settings: initial };
+    if (request.type === 'recall:classify')
+      return { ok: true, decision: classifyLocally(request.post, initial) };
+    if (request.type === 'recall:next')
+      return { ok: true, card: { ...card, leaseId: request.postId } };
+  });
+  controller = startRecall(transport);
+  await settle();
+  expect(first.style.display).toBe('none');
+  expect(second.style.display).toBe('none');
+  expect(transport.mock.calls.filter(([r]) => r.type === 'recall:next')).toHaveLength(2);
+  expect(document.querySelector('[data-foxvox-recall-test]')).not.toBeNull();
+  jest.advanceTimersByTime(2100);
+  await settle();
+  expect(first.style.display).toBe('');
+  expect(second.style.display).toBe('');
+  expect(document.querySelector('[data-foxvox-recall-test]')).toBeNull();
+  expect(document.querySelectorAll('[data-foxvox-recall]')).toHaveLength(0);
+  expect(transport.mock.calls.filter(([r]) => r.type === 'recall:release')).toHaveLength(2);
 });
 
 test('limits real-site filtering to home, excluding profiles, search, messages and status detail', () => {

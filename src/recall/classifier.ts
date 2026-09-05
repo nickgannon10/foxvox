@@ -1,4 +1,4 @@
-import { FeedPost, FilterDecision, FilterReason, RecallSettings } from './types';
+import { FeedPost, FilterDecision, FilterReason, RecallSettings, isFeedTestActive } from './types';
 
 const POLITICS =
   /\b(?:democrats?|republicans?|partisan|bipartisan|congress(?:ional)?|senators?|politicians?|presidential|election(?:s)?|ballot|campaign trail|political party|prime minister|parliament|MAGA|GOP)\b/i;
@@ -26,6 +26,14 @@ export function classifyLocally(post: FeedPost, settings: RecallSettings): Filte
     source: 'rules',
   });
   if (!settings.enabled) return keep('Recall is paused.');
+  if (isFeedTestActive(settings)) {
+    return {
+      replace: true,
+      reason: 'test',
+      explanation: 'Temporary test: every post is eligible for an Anki review.',
+      source: 'rules',
+    };
+  }
   const author = post.author.replace(/^@/, '').toLowerCase();
   if (terms(settings.protectedAccounts).some(v => v.replace(/^@/, '') === author)) {
     return keep('This account is on your keep list.');

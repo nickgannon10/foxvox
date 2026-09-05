@@ -1,5 +1,5 @@
 import { createRecallCard } from './card';
-import { DEFAULT_SETTINGS } from './types';
+import { DEFAULT_SETTINGS, isFeedTestActive } from './types';
 import type {
   FeedPost,
   FilterDecision,
@@ -34,10 +34,10 @@ export function isHomeFeedLocation(location: Pick<Location, 'hostname' | 'pathna
 }
 
 /** Read only the outer tweet, and use its timestamp/status link as its stable identity. */
-export function readFeedPost(article: HTMLElement): FeedPost | null {
+export function readFeedPost(article: HTMLElement, includeMediaOnly = false): FeedPost | null {
   const texts = Array.from(article.querySelectorAll<HTMLElement>('[data-testid="tweetText"]'));
   const textNode = texts.find(node => node.closest('article[data-testid="tweet"]') === article);
-  const text = textNode?.textContent?.trim();
+  const text = textNode?.textContent?.trim() || (includeMediaOnly ? '[Post without text]' : '');
   if (!text) return null;
   const links = Array.from(
     article.querySelectorAll<HTMLAnchorElement>('a[href*="/status/"]')
@@ -83,6 +83,9 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
   let stopped = false;
   let processing = false;
   let scheduled: ReturnType<typeof setTimeout> | undefined;
+  let testExpiryTimer: ReturnType<typeof setTimeout> | undefined;
+  let testBanner: HTMLElement | undefined;
+  let testBannerLabel: HTMLElement | undefined;
   let settingsEpoch = 0;
   let seenSinceReplacement = DEFAULT_SETTINGS.minPostGap;
   let previousUrl = window.location.href;
@@ -108,6 +111,64 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
     settings.enabled &&
     (isHomeFeedLocation(window.location) ||
       (demo && !/^(www\.)?(x\.com|twitter\.com)$/.test(window.location.hostname)));
+
+  function updateTestBanner(): void {
+    if (!eligible() || !isFeedTestActive(settings)) {
+      testBanner?.remove();
+      testBanner = undefined;
+      testBannerLabel = undefined;
+      return;
+    }
+    if (!testBanner?.isConnected) {
+      testBanner = document.createElement('div');
+      testBanner.dataset.foxvoxRecallTest = 'true';
+      const shadow = testBanner.attachShadow({ mode: 'closed' });
+      const style = document.createElement('style');
+      style.textContent =
+        ':host{position:fixed!important;bottom:18px!important;right:18px!important;z-index:2147483647!important;display:block!important}div{font:13px -apple-system,BlinkMacSystemFont,sans-serif;padding:14px 16px;background:#211b35;color:#ede5ff;border:1px solid #a390e0;border-radius:12px;box-shadow:0 4px 24px #0006;max-width:310px}button{font:inherit;color:#ede5ff;background:transparent;border:1px solid #a390e0;border-radius:6px;margin-left:12px;padding:5px 8px;cursor:pointer}button:focus-visible{outline:2px solid white}';
+      const box = document.createElement('div');
+      testBannerLabel = document.createElement('span');
+      const stop = document.createElement('button');
+      stop.type = 'button';
+      stop.textContent = 'Stop test';
+      stop.addEventListener('click', event => {
+        event.stopPropagation();
+        if (!event.isTrusted) return;
+        stop.disabled = true;
+        void transport({ type: 'recall:testMode', enabled: false })
+          .then(response => {
+            if (response.ok) void refreshSettings();
+            else {
+              stop.disabled = false;
+              stop.textContent = 'Stop in settings';
+            }
+          })
+          .catch(() => {
+            stop.disabled = false;
+            stop.textContent = 'Stop in settings';
+          });
+      });
+      box.append(testBannerLabel, stop);
+      shadow.append(style, box);
+      document.body.append(testBanner);
+    }
+    const seconds = Math.max(0, Math.ceil((settings.testModeUntil - Date.now()) / 1000));
+    const count = document.querySelectorAll('article[data-testid="tweet"]').length;
+    const label = `Recall test · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · ${count} posts detected`;
+    if (testBannerLabel && testBannerLabel.textContent !== label)
+      testBannerLabel.textContent = label;
+  }
+
+  function expireFeedTest(): void {
+    if (testExpiryTimer) clearTimeout(testExpiryTimer);
+    testExpiryTimer = undefined;
+    settings = { ...settings, testModeUntil: 0 };
+    restoreAll();
+    entries.clear();
+    handled.clear();
+    flagged.clear();
+    scan();
+  }
 
   function release(entry: PostEntry): void {
     if (!entry.card) return;
@@ -148,7 +209,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
       entries.get(entry.article) !== entry
     )
       return false;
-    const latest = readFeedPost(entry.article);
+    const latest = readFeedPost(entry.article, isFeedTestActive(settings));
     return !!latest && fingerprint(latest) === entry.fingerprint;
   }
 
@@ -225,7 +286,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
           entry.state = 'kept';
           continue;
         }
-        const withinGap = seenSinceReplacement < settings.minPostGap;
+        const withinGap = !isFeedTestActive(settings) && seenSinceReplacement < settings.minPostGap;
         seenSinceReplacement++;
         try {
           const result = await transport({ type: 'recall:classify', post: entry.post });
@@ -285,12 +346,13 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
 
   function scan(): void {
     if (stopped) return;
+    updateTestBanner();
     if (!eligible()) {
       restoreAll();
       return;
     }
     for (const [article, entry] of entries) {
-      const post = article.isConnected ? readFeedPost(article) : null;
+      const post = article.isConnected ? readFeedPost(article, isFeedTestActive(settings)) : null;
       if (
         entry.host &&
         !entry.host.isConnected &&
@@ -317,7 +379,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
         article.parentElement?.closest('article[data-testid="tweet"]')
       )
         return;
-      const post = readFeedPost(article);
+      const post = readFeedPost(article, isFeedTestActive(settings));
       if (!post) return;
       const bounds = article.getBoundingClientRect();
       const visible =
@@ -370,6 +432,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
   const navigationTimer = setInterval(() => {
     if (previousUrl !== window.location.href) onNavigation();
   }, 600);
+  const testBannerTimer = setInterval(updateTestBanner, 1000);
 
   async function refreshSettings(): Promise<void> {
     const epoch = ++settingsEpoch;
@@ -378,8 +441,18 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
       if (stopped || epoch !== settingsEpoch) return;
       if (response.ok && response.settings) {
         const wasEnabled = settings.enabled;
-        const changed = JSON.stringify(settings) !== JSON.stringify(response.settings);
-        settings = response.settings;
+        const nextSettings = {
+          ...response.settings,
+          testModeUntil:
+            response.settings.testModeUntil > Date.now() ? response.settings.testModeUntil : 0,
+        };
+        const changed = JSON.stringify(settings) !== JSON.stringify(nextSettings);
+        settings = nextSettings;
+        if (testExpiryTimer) clearTimeout(testExpiryTimer);
+        testExpiryTimer =
+          settings.testModeUntil > Date.now()
+            ? setTimeout(expireFeedTest, Math.min(settings.testModeUntil - Date.now(), 2147483647))
+            : undefined;
         if (changed) {
           restoreAll();
           entries.clear();
@@ -412,7 +485,10 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
       observer.disconnect();
       intersection?.disconnect();
       if (scheduled) clearTimeout(scheduled);
+      if (testExpiryTimer) clearTimeout(testExpiryTimer);
+      testBanner?.remove();
       clearInterval(navigationTimer);
+      clearInterval(testBannerTimer);
       clearInterval(settingsTimer);
       window.removeEventListener('popstate', onNavigation);
       window.removeEventListener('hashchange', onNavigation);

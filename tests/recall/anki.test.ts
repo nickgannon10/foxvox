@@ -372,6 +372,31 @@ describe('runtime message boundary', () => {
     url: 'chrome-extension://abc/options.html',
   } as chrome.runtime.MessageSender;
 
+  test('only extension pages can start a five-minute test; stopping preserves all other settings', async () => {
+    const h = harness();
+    const initial = {
+      ...DEFAULT_SETTINGS,
+      aiKey: 'test-secret',
+      minPostGap: 17,
+      protectedAccounts: '@friend',
+    };
+    await h.storage.set({ [SETTINGS_KEY]: initial });
+    const handle = createMessageHandler({ extensionId, storage: h.storage, service: h.service });
+    expect((await handle({ type: 'recall:testMode', enabled: true }, tabSender)).ok).toBe(false);
+    expect(validRequest({ type: 'recall:testMode', enabled: 'true' })).toBe(false);
+    const start = Date.now();
+    const result = await handle({ type: 'recall:testMode', enabled: true }, extensionSender);
+    expect(result.ok).toBe(true);
+    expect(result.settings?.testModeUntil).toBeGreaterThanOrEqual(start + 300000);
+    expect(result.settings?.testModeUntil).toBeLessThanOrEqual(Date.now() + 300000);
+    expect(result.settings?.aiKey).toBe('');
+    expect((await handle({ type: 'recall:testMode', enabled: false }, tabSender)).ok).toBe(true);
+    const restored = await handle({ type: 'recall:settings' }, extensionSender);
+    expect(restored.settings).toEqual(initial);
+    expect(h.anki.answers()).toHaveLength(0);
+    expect(normalizeSettings({ testModeUntil: start - 1 }).testModeUntil).toBe(0);
+  });
+
   test('checks extension identity, HTTPS X origin, and top frame', () => {
     expect(authorizeSender(tabSender, extensionId).extensionPage).toBe(false);
     expect(() => authorizeSender({ ...tabSender, id: 'other' }, extensionId)).toThrow(
