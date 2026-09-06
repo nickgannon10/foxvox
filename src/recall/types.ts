@@ -1,16 +1,18 @@
 export type Rating = 1 | 2 | 3 | 4;
-export type FilterReason = 'politics' | 'polarizing' | 'off-topic' | 'custom' | 'test';
+export type FilterReason = 'politics' | 'polarizing' | 'sports' | 'off-topic' | 'custom' | 'test';
 export interface RecallSettings {
   enabled: boolean;
   testModeUntil: number;
   filterPolitics: boolean;
   filterPolarizing: boolean;
+  filterSports: boolean;
   filterOffTopic: boolean;
   interests: string;
   blockedTerms: string;
   protectedAccounts: string;
   dailyLimit: number;
   minPostGap: number;
+  insertEvery: number;
   ankiQuery: string;
   mathQuery: string;
   mathEvery: number;
@@ -25,12 +27,14 @@ export const DEFAULT_SETTINGS: RecallSettings = {
   testModeUntil: 0,
   filterPolitics: true,
   filterPolarizing: true,
+  filterSports: true,
   filterOffTopic: false,
   interests: 'mathematics, science, engineering, art, thoughtful conversation',
   blockedTerms: '',
   protectedAccounts: '',
   dailyLimit: 12,
   minPostGap: 3,
+  insertEvery: 10,
   ankiQuery: '',
   mathQuery: 'tag:math',
   mathEvery: 3,
@@ -39,7 +43,7 @@ export const DEFAULT_SETTINGS: RecallSettings = {
   aiKey: '',
   aiModel: 'gpt-4.1-mini',
   contentSpec:
-    'Keep useful ideas, curiosity, and thoughtful disagreement. Replace partisan politics, personal attacks, outrage bait, and engagement bait.',
+    'Keep useful ideas, curiosity, and thoughtful disagreement. Replace partisan politics, sports coverage, personal attacks, outrage bait, and engagement bait.',
 };
 export const FEED_TEST_DURATION_MS = 5 * 60 * 1000;
 export function isFeedTestActive(settings: RecallSettings, now = Date.now()): boolean {

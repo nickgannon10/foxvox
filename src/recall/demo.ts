@@ -118,6 +118,26 @@ const posts: SamplePost[] = [
     text: 'A page of notes. A long walk. A question that follows you home.\n\nA pretty good Saturday.',
     color: '#3c3343',
   },
+  {
+    name: 'Courtside',
+    handle: 'courtside',
+    text: 'NBA playoffs: a thrilling overtime win for the Celtics.',
+  },
+  {
+    name: 'Leah',
+    handle: 'leahlearns',
+    text: 'A useful habit: write down one question before opening a textbook.',
+  },
+  {
+    name: 'Omar',
+    handle: 'omarbuilds',
+    text: 'The tenth post stays right here. Your next review gets a space of its own.',
+  },
+  {
+    name: 'Inez',
+    handle: 'inezdraws',
+    text: 'Trying a new sketchbook today. The rough lines are part of the fun.',
+  },
 ];
 let postCounter = 100;
 function addPost(post: SamplePost): HTMLElement {
@@ -186,6 +206,18 @@ document.querySelector('#add-post')!.addEventListener('click', () => {
     text: 'One useful idea to keep: try explaining it from memory.',
   });
   addPost(posts[3]).scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+document.querySelector('#add-ten-posts')!.addEventListener('click', () => {
+  let first: HTMLElement | undefined;
+  for (let index = 0; index < 10; index++) {
+    const article = addPost({
+      name: 'Alex',
+      handle: 'alexnotes',
+      text: `A useful idea, ${index + 1} of 10: try explaining it from memory.`,
+    });
+    first ||= article;
+  }
+  first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 // These are fixture profile links, not destinations to navigate to.
 document.querySelector('#feed')!.addEventListener('click', event => {

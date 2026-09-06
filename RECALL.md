@@ -1,9 +1,10 @@
 # FoxVox Recall
 
 An experimental Chrome extension that turns unwanted X home-feed posts into real
-Anki reviews. Political discussion and obvious outrage/engagement bait are
-replaced with a clearly labeled study card or a quiet placeholder. Useful posts
-stay in the feed. **Show original** always brings the original post back.
+Anki reviews, plus an extra review after every 10 tweets. Political discussion,
+sports coverage, and obvious outrage/engagement bait are replaced with a clearly
+labeled study card or a quiet placeholder. Useful posts stay in the feed. **Show
+original** always brings the original post back.
 
 This is a new build target in a fork of
 [PalisadeResearch/FoxVox](https://github.com/PalisadeResearch/foxvox). The
@@ -68,12 +69,15 @@ mocked contract tests but has not been exercised with a paid API key.
 ## Choose your attention policy
 
 The default local rules match electoral/partisan vocabulary and explicit insults
-or engagement-bait phrases. They run on the computer, explain the replacement,
-and work without an API key. They are transparent heuristics, not a
-comprehensive politics or polarization detector: ambiguous wording, images,
-sarcasm, and multilingual posts can be missed; useful posts can be false
-positives.
+or engagement-bait phrases, plus clear sports, league, and team-and-game terms.
+They run on the computer, explain the replacement, and work without an API key.
+They are transparent heuristics, not a comprehensive politics or polarization
+detector: ambiguous wording, images, sarcasm, and multilingual posts can be
+missed; useful posts can be false positives.
 
+- **Sports posts** is on by default. Local rules catch clear sports coverage
+  while avoiding generic terms such as “goal” or machine-learning “F1 score.”
+  The optional AI check can also classify sports; the checkbox controls both.
 - **Protected accounts** always win during normal filtering. The temporary
   replace-every-post test bypasses them. Enter handles separated by commas or
   lines.
@@ -109,18 +113,28 @@ using API v6. No MCP service or custom scheduler is necessary.
 | Skip / Show original | Release the reservation; no scheduling mutation                                |
 | Unconfirmed answer   | Block retries for that reservation; ask the user to check Anki                 |
 
-The default is **12 reviews per local calendar day**, with three intervening
-posts between card offers. Every eligible unwanted post is still filtered; the
-gap controls study-card frequency. When no card is due, the cap is reached, or
-Anki is offline, a placeholder explains why no card is available. Outstanding
-cards count toward the cap across tabs. Reservations survive worker restarts,
-expire after 20 minutes if unsubmitted, and are revalidated before grading. An
-ambiguous answer is never blindly retried. It is reconciled only after a later
-Anki check demonstrates increased review count and changed scheduling state.
-Reloading, discarding, replacing, or closing a tab releases its unsubmitted
-cards. Worker startup also clears reservations belonging to closed tabs. These
-cleanups preserve uncertain-answer records so navigation cannot cause a
-duplicate review. No additional browser permissions are required.
+The default is **one extra card after every 10 original tweets** encountered
+near the viewport. This keeps the tenth tweet and inserts a separate study card
+after it. Media-only posts and filtered tweets count toward the interval; the
+extra cards do not. Repeated posts are deduplicated within the bounded session
+cache. Cadence restarts after navigation, a policy change, or reload. Use
+**Dismiss card** or **Skip for now** to remove an extra card without grading it.
+Set **Add a review after every…** to 0 to disable insertions.
+
+Both extra cards and replacements share **12 reviews per local calendar day** by
+default. Replacement cards have a minimum gap of three intervening posts; the
+scheduled insertion interval is independent. When no card is due, the cap is
+reached, or Anki is offline, optional insertions are skipped. Filtered posts
+still receive an explanatory placeholder. The temporary replace-every-post test
+pauses scheduled insertions. Outstanding cards count toward the cap across tabs.
+Reservations survive worker restarts, expire after 20 minutes if unsubmitted,
+and are revalidated before grading. An ambiguous answer is never blindly
+retried. It is reconciled only after a later Anki check demonstrates increased
+review count and changed scheduling state. Reloading, discarding, replacing, or
+closing a tab releases its unsubmitted cards. Worker startup also clears
+reservations belonging to closed tabs. These cleanups preserve uncertain-answer
+records so navigation cannot cause a duplicate review. No additional browser
+permissions are required.
 
 **Scheduling scope:** `answerCards` invokes Anki's scheduler, including the
 collection's configured scheduling algorithm. `findCards` does not reproduce
@@ -190,7 +204,12 @@ Stress tests also cover 1,200 recycled posts, 100 concurrent card requests, and
 reveal, skip, show-original, rapid scrolling, For you/Following, two-tab card
 allocation, navigation away/back, and automatic test expiry. A reload
 reservation leak found during those checks is covered by lifecycle regression
-tests.
+tests. Cadence tests cover exact tenth/twentieth placement, media posts,
+recycled nodes, dismissal, overlapping sports replacements, unavailable cards,
+and late responses after pause. The browser preview exercises sports replacement
+and an extra card between its tenth and eleventh tweets. Existing saved settings
+inherit the new 10-tweet interval and sports switch while retaining other
+preferences.
 
 Key code: `src/recall/content.ts` (feed lifecycle), `card.ts` (study interface),
 `classifier.ts` (policy), `anki.ts` (real reviews), `background.ts` (validated

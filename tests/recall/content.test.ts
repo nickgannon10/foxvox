@@ -54,7 +54,7 @@ function fakeTransport(
     async (request: RecallRequest) =>
       overrides(request) ||
       (request.type === 'recall:settings'
-        ? { ok: true, settings: { ...DEFAULT_SETTINGS, minPostGap: 0 } }
+        ? { ok: true, settings: { ...DEFAULT_SETTINGS, minPostGap: 0, insertEvery: 0 } }
         : request.type === 'recall:classify'
           ? { ok: true, decision }
           : request.type === 'recall:next'
@@ -64,6 +64,20 @@ function fakeTransport(
 }
 
 let controller: RecallController | undefined;
+const settleFeed = async (): Promise<void> => {
+  for (let i = 0; i < 250; i++) await Promise.resolve();
+  await settle();
+};
+function insertionTransport(insertEvery = 10): jest.MockedFunction<RecallTransport> {
+  const settings = { ...DEFAULT_SETTINGS, insertEvery, minPostGap: 0 };
+  return fakeTransport(request => {
+    if (request.type === 'recall:settings') return { ok: true, settings };
+    if (request.type === 'recall:classify')
+      return { ok: true, decision: classifyLocally(request.post, settings) };
+    if (request.type === 'recall:next')
+      return { ok: true, card: { ...card, leaseId: request.postId } };
+  });
+}
 beforeEach(() => {
   jest.useFakeTimers();
   document.body.replaceChildren();
@@ -75,6 +89,128 @@ afterEach(() => {
   jest.useRealTimers();
   jest.restoreAllMocks();
   delete document.documentElement.dataset.recallDemo;
+});
+
+test('inserts after tweets 10 and 20, counts media posts, and preserves every original', async () => {
+  const originals = Array.from({ length: 20 }, (_, i) =>
+    tweet(String(i + 1), i === 9 ? '' : 'A useful idea.')
+  );
+  const transport = insertionTransport();
+  controller = startRecall(transport);
+  await settleFeed();
+  const inserts = document.querySelectorAll('[data-foxvox-recall-placement="insertion"]');
+  expect(inserts).toHaveLength(2);
+  expect(originals[9].nextElementSibling).toBe(inserts[0]);
+  expect(originals[19].nextElementSibling).toBe(inserts[1]);
+  expect(originals.every(article => article.isConnected && article.style.display === '')).toBe(
+    true
+  );
+  expect(transport.mock.calls.filter(([r]) => r.type === 'recall:next').map(([r]) => r)).toEqual([
+    { type: 'recall:next', postId: 'insert:10' },
+    { type: 'recall:next', postId: 'insert:20' },
+  ]);
+  const shadow = inserts[0].shadowRoot!;
+  expect(shadow.textContent).toContain('A review break after 10 tweets.');
+  expect(shadow.textContent).not.toContain('Show original');
+  button(shadow, 'Dismiss card').click();
+  await controller.refreshSettings();
+  await settleFeed();
+  expect(document.querySelectorAll('[data-foxvox-recall-placement="insertion"]')).toHaveLength(1);
+  expect(transport.mock.calls).toContainEqual([{ type: 'recall:release', leaseId: 'insert:10' }]);
+  expect(originals[9].style.display).toBe('');
+});
+
+test('recycled tweets are counted once and a removed insertion releases its card', async () => {
+  const originals = Array.from({ length: 10 }, (_, i) => tweet(String(i + 1), 'A useful idea.'));
+  const transport = insertionTransport();
+  controller = startRecall(transport);
+  await settleFeed();
+  originals.forEach(article => article.remove());
+  await controller.refreshSettings();
+  await settleFeed();
+  expect(document.querySelectorAll('[data-foxvox-recall]')).toHaveLength(0);
+  expect(transport.mock.calls).toContainEqual([{ type: 'recall:release', leaseId: 'insert:10' }]);
+  for (let i = 1; i <= 19; i++) tweet(String(i), 'A useful idea.');
+  await controller.refreshSettings();
+  await settleFeed();
+  expect(document.querySelectorAll('[data-foxvox-recall]')).toHaveLength(0);
+  const twentieth = tweet('20', 'A useful idea.');
+  await controller.refreshSettings();
+  await settleFeed();
+  expect(twentieth.nextElementSibling?.getAttribute('data-foxvox-recall-placement')).toBe(
+    'insertion'
+  );
+  expect(transport.mock.calls.filter(([r]) => r.type === 'recall:next')).toHaveLength(2);
+});
+
+test('sports replacement and the scheduled insertion use distinct reservations', async () => {
+  const first = tweet('1', 'A useful idea.');
+  const sports = tweet('2', 'NBA playoff highlights.');
+  const transport = insertionTransport(2);
+  controller = startRecall(transport);
+  await settleFeed();
+  expect(first.style.display).toBe('');
+  expect(sports.style.display).toBe('none');
+  expect(sports.previousElementSibling?.getAttribute('data-foxvox-recall-placement')).toBe(
+    'replacement'
+  );
+  expect(sports.nextElementSibling?.getAttribute('data-foxvox-recall-placement')).toBe('insertion');
+  const insertion = sports.nextElementSibling;
+  button(sports.previousElementSibling!.shadowRoot!, 'Show original').click();
+  await settleFeed();
+  expect(sports.style.display).toBe('');
+  expect(sports.nextElementSibling).toBe(insertion);
+  expect(transport.mock.calls.filter(([r]) => r.type === 'recall:next').map(([r]) => r)).toEqual([
+    { type: 'recall:next', postId: '2' },
+    { type: 'recall:next', postId: 'insert:2' },
+  ]);
+});
+
+test.each(['empty', 'offline'])(
+  'a scheduled %s result adds no placeholder or hidden tweet',
+  async mode => {
+    const article = tweet('1', 'A useful idea.');
+    const transport = insertionTransport(1);
+    const original = transport.getMockImplementation()!;
+    transport.mockImplementation(request =>
+      request.type === 'recall:next'
+        ? Promise.resolve(
+            mode === 'empty' ? { ok: true, card: null } : { ok: false, error: 'Offline' }
+          )
+        : original(request)
+    );
+    controller = startRecall(transport);
+    await settleFeed();
+    expect(article.style.display).toBe('');
+    expect(document.querySelector('[data-foxvox-recall]')).toBeNull();
+  }
+);
+
+test('late insertion reservations are released when Recall is paused', async () => {
+  const article = tweet('1', 'A useful idea.');
+  const transport = insertionTransport(1);
+  const original = transport.getMockImplementation()!;
+  let finish!: (response: RecallResponse) => void;
+  let paused = false;
+  transport.mockImplementation(request => {
+    if (request.type === 'recall:next')
+      return new Promise(resolve => {
+        finish = resolve;
+      });
+    if (paused && request.type === 'recall:settings')
+      return Promise.resolve({ ok: true, settings: { ...DEFAULT_SETTINGS, enabled: false } });
+    return original(request);
+  });
+  controller = startRecall(transport);
+  await settleFeed();
+  expect(finish).toBeDefined();
+  paused = true;
+  await controller.refreshSettings();
+  finish({ ok: true, card });
+  await settleFeed();
+  expect(article.style.display).toBe('');
+  expect(document.querySelector('[data-foxvox-recall]')).toBeNull();
+  expect(transport.mock.calls).toContainEqual([{ type: 'recall:release', leaseId: card.leaseId }]);
 });
 
 test('feed test includes media-only posts, bypasses spacing, and expires in place', async () => {

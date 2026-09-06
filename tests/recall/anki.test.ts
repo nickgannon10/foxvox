@@ -559,4 +559,21 @@ describe('runtime message boundary', () => {
     });
     expect(settings).not.toHaveProperty('surprise');
   });
+
+  test('older saved preferences inherit sports filtering and a ten-tweet insertion interval', () => {
+    expect(
+      normalizeSettings({ dailyLimit: 7, aiKey: 'retained', filterPolitics: false })
+    ).toMatchObject({
+      dailyLimit: 7,
+      aiKey: 'retained',
+      filterPolitics: false,
+      filterSports: true,
+      insertEvery: 10,
+    });
+    expect(normalizeSettings({ insertEvery: 0, filterSports: false })).toMatchObject({
+      insertEvery: 0,
+      filterSports: false,
+    });
+    expect(normalizeSettings({ insertEvery: 500 }).insertEvery).toBe(100);
+  });
 });

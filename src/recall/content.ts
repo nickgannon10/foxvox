@@ -17,6 +17,9 @@ interface PostEntry {
   version: number;
   host?: HTMLElement;
   card?: ReviewCard;
+  insertionDue?: boolean;
+  insertHost?: HTMLElement;
+  insertCard?: ReviewCard;
   originalDisplay?: string;
   originalPriority?: string;
 }
@@ -94,6 +97,8 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
   // Remember a user dismissal across virtualized tweet nodes, but not across page reloads.
   const dismissed = new Set<string>();
   const handled = new Set<string>();
+  const counted = new Set<string>();
+  let postsSinceInsertion = 0;
   // Virtualized tweets can return after their first card was released or reviewed.
   // Preserve the filter decision separately so returning posts stay filtered.
   const flagged = new Map<string, FilterDecision>();
@@ -113,6 +118,12 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
     settings.enabled &&
     (isHomeFeedLocation(window.location) ||
       (demo && !/^(www\.)?(x\.com|twitter\.com)$/.test(window.location.hostname)));
+
+  const includeMediaOnly = (): boolean => settings.insertEvery > 0 || isFeedTestActive(settings);
+  const resetCadence = (): void => {
+    counted.clear();
+    postsSinceInsertion = 0;
+  };
 
   function updateTestBanner(): void {
     if (!eligible() || !isFeedTestActive(settings)) {
@@ -169,6 +180,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
     entries.clear();
     handled.clear();
     flagged.clear();
+    resetCadence();
     scan();
   }
 
@@ -182,6 +194,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
   function restore(entry: PostEntry, keep = false): void {
     entry.version++;
     release(entry);
+    if (!keep) removeInsertion(entry);
     entry.host?.remove();
     entry.host = undefined;
     if (entry.originalDisplay !== undefined) {
@@ -211,7 +224,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
       entries.get(entry.article) !== entry
     )
       return false;
-    const latest = readFeedPost(entry.article, isFeedTestActive(settings));
+    const latest = readFeedPost(entry.article, includeMediaOnly());
     return !!latest && fingerprint(latest) === entry.fingerprint;
   }
 
@@ -253,6 +266,129 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
     if (card) seenSinceReplacement = 0;
   }
 
+  function removeInsertion(entry: PostEntry): void {
+    if (entry.insertCard) {
+      void transport({ type: 'recall:release', leaseId: entry.insertCard.leaseId }).catch(
+        () => undefined
+      );
+      entry.insertCard = undefined;
+    }
+    entry.insertHost?.remove();
+    entry.insertHost = undefined;
+  }
+
+  async function insertReview(entry: PostEntry, version: number): Promise<void> {
+    if (!entry.insertionDue || !current(entry, version)) return;
+    entry.insertionDue = false;
+    try {
+      const result = await transport({ type: 'recall:next', postId: `insert:${entry.post.id}` });
+      if (!current(entry, version) || !result.ok) {
+        if (result.card)
+          void transport({ type: 'recall:release', leaseId: result.card.leaseId }).catch(
+            () => undefined
+          );
+        return;
+      }
+      const card = result.card;
+      // An optional review break needs no placeholder when there is nothing to study.
+      if (!card) return;
+      entry.insertCard = card;
+      const dismiss = (): void => removeInsertion(entry);
+      entry.insertHost = createRecallCard({
+        demo,
+        placement: 'insertion',
+        decision: {
+          replace: false,
+          source: 'rules',
+          explanation: `A review break after ${settings.insertEvery} tweets.`,
+        },
+        card,
+        onAnswer: rating => transport({ type: 'recall:answer', leaseId: card.leaseId, rating }),
+        onShowOriginal: dismiss,
+        onSkip: dismiss,
+        onReviewed: () => {
+          entry.insertCard = undefined;
+        },
+      });
+      entry.article.after(entry.insertHost);
+      seenSinceReplacement = 0;
+    } catch {
+      // An unavailable card never changes the original tweet.
+      removeInsertion(entry);
+    }
+  }
+
+  async function processEntry(entry: PostEntry): Promise<void> {
+    const version = entry.version;
+    entry.state = 'working';
+    if (!counted.has(entry.post.id)) {
+      remember(counted, entry.post.id);
+      if (settings.insertEvery > 0 && !isFeedTestActive(settings)) {
+        postsSinceInsertion++;
+        if (postsSinceInsertion >= settings.insertEvery) {
+          postsSinceInsertion = 0;
+          entry.insertionDue = true;
+        }
+      }
+    }
+    try {
+      if (dismissed.has(entry.post.id)) {
+        entry.state = 'kept';
+        return;
+      }
+      const previousDecision = flagged.get(entry.fingerprint);
+      if (previousDecision) {
+        show(
+          entry,
+          previousDecision,
+          null,
+          'Still filtered by your preferences. You have already seen this detour.'
+        );
+        return;
+      }
+      if (
+        handled.has(entry.fingerprint) ||
+        (entry.post.text === '[Post without text]' && !isFeedTestActive(settings))
+      ) {
+        entry.state = 'kept';
+        return;
+      }
+      const withinGap = !isFeedTestActive(settings) && seenSinceReplacement < settings.minPostGap;
+      seenSinceReplacement++;
+      const result = await transport({ type: 'recall:classify', post: entry.post });
+      if (!current(entry, version)) return;
+      if (!result.ok || !result.decision?.replace) {
+        entry.state = 'kept';
+        remember(handled, entry.fingerprint);
+        return;
+      }
+      rememberFlagged(entry.fingerprint, result.decision);
+      if (withinGap) {
+        show(
+          entry,
+          result.decision,
+          null,
+          'Filtered by your rules. The next review will appear after a few more posts.'
+        );
+        return;
+      }
+      const next = await transport({ type: 'recall:next', postId: entry.post.id });
+      if (!current(entry, version)) {
+        if (next.card)
+          void transport({ type: 'recall:release', leaseId: next.card.leaseId }).catch(
+            () => undefined
+          );
+        return;
+      }
+      show(entry, result.decision, next.ok ? next.card || null : null, next.message || next.error);
+    } catch {
+      // A failed classifier must not decide what to hide. Leave the tweet intact.
+      if (current(entry, version)) entry.state = 'kept';
+    } finally {
+      await insertReview(entry, version);
+    }
+  }
+
   async function processVisible(): Promise<void> {
     if (processing || !eligible()) return;
     processing = true;
@@ -268,64 +404,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
         );
         const entry = candidates[0];
         if (!entry) break;
-        const version = entry.version;
-        entry.state = 'working';
-        if (dismissed.has(entry.post.id)) {
-          entry.state = 'kept';
-          continue;
-        }
-        const previousDecision = flagged.get(entry.fingerprint);
-        if (previousDecision) {
-          show(
-            entry,
-            previousDecision,
-            null,
-            'Still filtered by your preferences. You have already seen this detour.'
-          );
-          continue;
-        }
-        if (handled.has(entry.fingerprint)) {
-          entry.state = 'kept';
-          continue;
-        }
-        const withinGap = !isFeedTestActive(settings) && seenSinceReplacement < settings.minPostGap;
-        seenSinceReplacement++;
-        try {
-          const result = await transport({ type: 'recall:classify', post: entry.post });
-          if (!current(entry, version)) continue;
-          if (!result.ok || !result.decision?.replace) {
-            entry.state = 'kept';
-            remember(handled, entry.fingerprint);
-            continue;
-          }
-          rememberFlagged(entry.fingerprint, result.decision);
-          if (withinGap) {
-            show(
-              entry,
-              result.decision,
-              null,
-              'Filtered by your rules. The next review will appear after a few more posts.'
-            );
-            continue;
-          }
-          const next = await transport({ type: 'recall:next', postId: entry.post.id });
-          if (!current(entry, version)) {
-            if (next.card)
-              void transport({ type: 'recall:release', leaseId: next.card.leaseId }).catch(
-                () => undefined
-              );
-            continue;
-          }
-          show(
-            entry,
-            result.decision,
-            next.ok ? next.card || null : null,
-            next.message || next.error
-          );
-        } catch {
-          // A failed classifier must not decide what to hide. Leave the tweet intact.
-          if (current(entry, version)) entry.state = 'kept';
-        }
+        await processEntry(entry);
       }
     } finally {
       processing = false;
@@ -354,7 +433,14 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
       return;
     }
     for (const [article, entry] of entries) {
-      const post = article.isConnected ? readFeedPost(article, isFeedTestActive(settings)) : null;
+      if (entry.insertHost && !entry.insertHost.isConnected) removeInsertion(entry);
+      if (
+        entry.insertHost &&
+        article.isConnected &&
+        entry.insertHost.previousElementSibling !== article
+      )
+        article.after(entry.insertHost);
+      const post = article.isConnected ? readFeedPost(article, includeMediaOnly()) : null;
       if (
         entry.host &&
         !entry.host.isConnected &&
@@ -381,7 +467,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
         article.parentElement?.closest('article[data-testid="tweet"]')
       )
         return;
-      const post = readFeedPost(article, isFeedTestActive(settings));
+      const post = readFeedPost(article, includeMediaOnly());
       if (!post) return;
       const bounds = article.getBoundingClientRect();
       const visible =
@@ -424,6 +510,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
       entries.clear();
       handled.clear();
       flagged.clear();
+      resetCadence();
       seenSinceReplacement = settings.minPostGap;
     }
     scan();
@@ -434,6 +521,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
     entries.clear();
     handled.clear();
     flagged.clear();
+    resetCadence();
     updateTestBanner();
   };
   const onPageShow = (): void => {
@@ -473,6 +561,7 @@ export function startRecall(transport: RecallTransport = extensionTransport): Re
           entries.clear();
           handled.clear();
           flagged.clear();
+          resetCadence();
           seenSinceReplacement = settings.minPostGap;
         }
         if (!settings.enabled) restoreAll();

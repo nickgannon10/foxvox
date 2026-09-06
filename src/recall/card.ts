@@ -130,6 +130,7 @@ export interface RecallCardOptions {
   card: ReviewCard | null;
   message?: string;
   demo?: boolean;
+  placement?: 'replacement' | 'insertion';
   onAnswer(rating: Rating): Promise<RecallResponse>;
   onShowOriginal(): void;
   onSkip(): void;
@@ -139,6 +140,7 @@ export interface RecallCardOptions {
 export function createRecallCard(options: RecallCardOptions): HTMLElement {
   const host = el('div');
   host.dataset.foxvoxRecall = 'true';
+  host.dataset.foxvoxRecallPlacement = options.placement || 'replacement';
   host.setAttribute('role', 'region');
   host.setAttribute(
     'aria-label',
@@ -157,11 +159,23 @@ export function createRecallCard(options: RecallCardOptions): HTMLElement {
   const top = el('div', 'top');
   const mark = el('span', 'mark', 'f');
   mark.setAttribute('aria-hidden', 'true');
-  const original = button('Show original', 'original', options.onShowOriginal);
+  const original = button(
+    options.placement === 'insertion' ? 'Dismiss card' : 'Show original',
+    'original',
+    options.onShowOriginal
+  );
   top.append(
     mark,
     el('span', 'brand', 'FoxVox Recall'),
-    el('span', 'pill', options.demo ? 'Sample review' : 'A better detour'),
+    el(
+      'span',
+      'pill',
+      options.demo
+        ? 'Sample review'
+        : options.placement === 'insertion'
+          ? 'Review break'
+          : 'A better detour'
+    ),
     original
   );
   const reason = el(

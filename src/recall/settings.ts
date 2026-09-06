@@ -11,6 +11,7 @@ const booleanKeys = [
   'enabled',
   'filterPolitics',
   'filterPolarizing',
+  'filterSports',
   'filterOffTopic',
   'aiEnabled',
 ] as const;
@@ -46,6 +47,7 @@ export function normalizeSettings(input: unknown): RecallSettings {
   }
   settings.dailyLimit = boundedInteger(values.dailyLimit, settings.dailyLimit, 0, 100);
   settings.minPostGap = boundedInteger(values.minPostGap, settings.minPostGap, 0, 100);
+  settings.insertEvery = boundedInteger(values.insertEvery, settings.insertEvery, 0, 100);
   settings.mathEvery = boundedInteger(values.mathEvery, settings.mathEvery, 0, 100);
   settings.testModeUntil = boundedInteger(values.testModeUntil, 0, 0, Number.MAX_SAFE_INTEGER);
   if (settings.testModeUntil <= Date.now()) settings.testModeUntil = 0;

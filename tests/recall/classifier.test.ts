@@ -3,6 +3,62 @@ import { DEFAULT_SETTINGS } from '../../src/recall/types';
 
 const post = (text: string, author = 'curious') => ({ id: '123', author, text });
 describe('Feed policy', () => {
+  it('filters clear sports coverage while preserving technical metaphors', () => {
+    for (const text of [
+      'NBA playoffs highlights from tonight.',
+      'The Celtics won in overtime.',
+      'Baylor scores a touchdown to win.',
+      'Football season is back.',
+      'F1 race qualifying results.',
+      'Wimbledon highlights and the PGA leaderboard.',
+    ])
+      expect(classifyLocally(post(text), DEFAULT_SETTINGS).reason).toBe('sports');
+    for (const text of [
+      'Our F1 score improved along with precision and recall.',
+      'Fixing a race condition in the worker.',
+      'Our goal is to ship a better model.',
+      'A marathon debugging session.',
+      'Building a tiny sports car from wood.',
+      'Code golf is a fun programming puzzle.',
+    ])
+      expect(classifyLocally(post(text), DEFAULT_SETTINGS).replace).toBe(false);
+    expect(
+      classifyLocally(post('NBA playoffs'), { ...DEFAULT_SETTINGS, filterSports: false }).replace
+    ).toBe(false);
+    expect(
+      classifyLocally(post('NBA playoffs'), { ...DEFAULT_SETTINGS, protectedAccounts: 'curious' })
+        .replace
+    ).toBe(false);
+  });
+
+  it('sends the sports switch to AI, validates it, and invalidates the cache when toggled', async () => {
+    const fetcher = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ category: 'sports', explanation: 'Sports commentary.' }),
+            },
+          },
+        ],
+      }),
+    });
+    global.fetch = fetcher;
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      aiEnabled: true,
+      aiKey: 'sports-contract-test',
+      filterSports: false,
+    };
+    const input = post('An ambiguous example for the sports contract test.');
+    expect((await classifyPost(input, settings)).replace).toBe(false);
+    expect(
+      JSON.parse(JSON.parse(fetcher.mock.calls[0][1].body).messages[1].content).policy.sports
+    ).toBe(false);
+    expect((await classifyPost(input, { ...settings, filterSports: true })).reason).toBe('sports');
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
   it('temporarily replaces every post without calling AI, then restores the policy', async () => {
     const fetcher = jest.fn();
     global.fetch = fetcher;
