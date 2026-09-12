@@ -44,7 +44,6 @@ def prepare():
     for card in data["cards"]:
         paper = data["papers"][card["paper"]]
         adapted = "mlrf_file" in paper
-        deck = "MLRF Foundations" if adapted else "Recent Papers"
         source_label = f'{paper["title"]} ({paper["year"]})'
         attribution = link(paper["url"], source_label)
         if adapted:
@@ -62,7 +61,7 @@ def prepare():
             + "<br>Checked " + html.escape(data["checked"]) + ".</small></p>"
         )
         notes.append({
-            "deckName": f"Recall::LLM Research::{deck}",
+            "deckName": "General",
             "modelName": "Basic",
             "fields": {"Front": html.escape(card["front"]), "Back": back},
             "tags": [

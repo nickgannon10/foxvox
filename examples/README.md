@@ -1,11 +1,16 @@
 # Cards for your feed
 
+All 178 imported Recall cards live in **General**, alongside the six existing
+cards (184 total at consolidation). Tags retain their topic and source grouping,
+including `recall::multiplication` for the feed's 25% target. The move preserved
+note content, tags, review counts, intervals, and due dates. Empty Recall decks
+were removed. All import files and generators now target General.
+
 ## Curated LLM research and duplex interaction
 
-The [research batch](recall-llm-research.txt) adds **34 cards** under
-**Recall::LLM Research**:
+The [research batch](recall-llm-research.txt) adds **34 cards** to **General**:
 
-| Subdeck          | Cards | Coverage                                                                                          |
+| Group            | Cards | Coverage                                                                                          |
 | ---------------- | ----: | ------------------------------------------------------------------------------------------------- |
 | MLRF Foundations |    10 | Attention, LoRA, and Switch Transformer routing, capacity, and balancing.                         |
 | Recent Papers    |    24 | Olmo 3, mid-training distribution bridging, Olmo Hybrid, DeepSeek-V3.2, PersonaPlex, and DyaPlex. |
@@ -54,10 +59,10 @@ foundation and multiplication files below.
 
 The September 12, 2026 batch contains original text-only Basic notes:
 
-| File                                        | Cards | Deck                   | Contents                                                                                                                        |
-| ------------------------------------------- | ----: | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| [ML foundations](recall-ml-foundations.txt) |    24 | Recall::ML Foundations | Learning-rate annealing and scaling laws; on/off-policy; non-stationarity and SFT forgetting; online/offline and sync/async RL. |
-| [Multiplication](recall-multiplication.txt) |   120 | Recall::Multiplication | Two-digit products, including squares and easier factors, with a tens-and-ones worked solution on every back.                   |
+| File                                        | Cards | Deck    | Contents                                                                                                                        |
+| ------------------------------------------- | ----: | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| [ML foundations](recall-ml-foundations.txt) |    24 | General | Learning-rate annealing and scaling laws; on/off-policy; non-stationarity and SFT forgetting; online/offline and sync/async RL. |
+| [Multiplication](recall-multiplication.txt) |   120 | General | Two-digit products, including squares and easier factors, with a tens-and-ones worked solution on every back.                   |
 
 These 144 notes were imported into the local Anki collection and their content,
 tags, deck placement, and new-card state verified. No review answers or due-date
@@ -119,10 +124,10 @@ mathematics. Nothing is imported automatically.
 In Anki, choose **File → Import**, select the text file, and review the preview
 before importing. Its headers specify UTF-8 tab-separated content, HTML, the
 **Basic** note type, and the tags **math recall**. The first two columns are
-Front and Back; the third supplies the deck **Recall::Math**. Confirm those
-mappings, the destination deck, and that HTML is enabled. If your Anki profile
-does not have a note type named Basic, select its equivalent with Front and Back
-fields in the import dialog.
+Front and Back; the third supplies the deck **General**. Confirm those mappings,
+the destination deck, and that HTML is enabled. If your Anki profile does not
+have a note type named Basic, select its equivalent with Front and Back fields
+in the import dialog.
 
 The cards use Anki's built-in MathJax delimiters, `\(...\)` and `\[...\]`, and
 need no external images or media. The backs give a short worked explanation, so
@@ -130,9 +135,9 @@ try solving the problem before revealing it.
 
 **Introduce the new cards in Anki first.** Recall offers learned cards that Anki
 considers due; it deliberately excludes unseen new cards. Leave Recall's math
-search at `tag:math`, or use `deck:"Recall::Math"` to select this deck
-specifically. Ratings in the real X feed update Anki's schedule; the extension's
-sample feed remains separate.
+search at `tag:math`, or use `deck:"General"` to select the shared deck. Ratings
+in the real X feed update Anki's schedule; the extension's sample feed remains
+separate.
 
 The answers were checked independently using algebra, exact rational
 calculations, numerical integration, and direct matrix multiplication.

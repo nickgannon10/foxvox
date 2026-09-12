@@ -164,13 +164,14 @@ then self-rate honestly; Anki controls the schedule.
 
 The [card collection and import notes](examples/README.md) now include 24
 sourced ML concept cards and 120 two-digit multiplication problems with worked
-solutions. Use an existing math deck, or import the
-[12-card starter](examples/recall-math-starter.txt), following
-[the import notes](examples/README.md). Newly imported cards must be introduced
-in Anki before the feed can offer them as due reviews. The new September 12
-batch was imported into the local development collection and verified as 144 new
-cards; no reviews or due-date changes were submitted. The older starter file has
-not been imported into the user's collection.
+solutions. Another research batch adds 34 cards. All 178 added cards are in
+**General**; topics and the multiplication cadence use tags. Use an existing
+math deck, or import the [12-card starter](examples/recall-math-starter.txt),
+following [the import notes](examples/README.md). Newly imported cards must be
+introduced in Anki before the feed can offer them as due reviews. The new
+September 12 batch was imported into the local development collection and
+verified as 144 new cards; no reviews or due-date changes were submitted. The
+older starter file has not been imported into the user's collection.
 
 Bundled KaTeX renders common LaTeX in `\(...\)`, `\[...\]`, `$$...$$`, and
 `$...$`. The scratchpad is ephemeral and is never sent to Anki or the optional

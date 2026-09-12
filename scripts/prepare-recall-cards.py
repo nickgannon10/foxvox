@@ -23,7 +23,7 @@ def prepare():
         back = html.escape(card["back"]) + "<p><small>Sources: " + " · ".join(
             f'<a href="{html.escape(url, quote=True)}">{html.escape(url)}</a>' for url in sources
         ) + "</small></p>"
-        notes.append({"deckName": "Recall::ML Foundations", "modelName": "Basic",
+        notes.append({"deckName": "General", "modelName": "Basic",
                       "fields": {"Front": card["front"], "Back": back},
                       "tags": ["recall", BATCH, "recall::ml", f'recall::{card["topic"]}',
                                f'recall_id_{card["id"]}']})
@@ -47,7 +47,7 @@ def prepare():
         # Check independently by repeated addition and by four partial products.
         assert product == sum(a for _ in range(b))
         assert product == (a // 10 * 10) * (b // 10 * 10) + (a % 10) * (b // 10 * 10) + (a // 10 * 10) * (b % 10) + (a % 10) * (b % 10)
-        notes.append({"deckName": "Recall::Multiplication", "modelName": "Basic",
+        notes.append({"deckName": "General", "modelName": "Basic",
                       "fields": {"Front": f"Compute mentally: \\({a} \\times {b}\\).",
                                  "Back": f"\\[\\boxed{{{product}}}\\]<p>Split {b} into tens and ones:</p>\\[{a}({tens * 10}+{ones})={a * tens * 10}+{a * ones}={product}.\\]"},
                       "tags": ["recall", "math", "recall::multiplication", "two_digit", BATCH,
@@ -104,6 +104,7 @@ if __name__ == "__main__":
         by_front = {n["fields"]["Front"]["value"]: n for n in verified}
         for n in notes:
             actual = by_front[n["fields"]["Front"]]
-            assert actual["fields"]["Back"]["value"] == n["fields"]["Back"]
+            # Anki's editor may normalize equivalent HTML entities while displaying a note.
+            assert html.unescape(actual["fields"]["Back"]["value"]) == html.unescape(n["fields"]["Back"])
             assert set(n["tags"]).issubset(actual["tags"])
         print(f"Added {len(missing)} notes; verified all {len(found)}. No reviews or scheduling changes submitted.")
