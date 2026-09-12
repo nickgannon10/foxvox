@@ -1,5 +1,55 @@
 # Cards for your feed
 
+## Curated LLM research and duplex interaction
+
+The [research batch](recall-llm-research.txt) adds **34 cards** under
+**Recall::LLM Research**:
+
+| Subdeck          | Cards | Coverage                                                                                          |
+| ---------------- | ----: | ------------------------------------------------------------------------------------------------- |
+| MLRF Foundations |    10 | Attention, LoRA, and Switch Transformer routing, capacity, and balancing.                         |
+| Recent Papers    |    24 | Olmo 3, mid-training distribution bridging, Olmo Hybrid, DeepSeek-V3.2, PersonaPlex, and DyaPlex. |
+
+MLRF's
+[latest checked commit](https://github.com/Mxbonn/MLRF/commit/26ee62a87f7c08049c9701cecfd28648c8de6b2b)
+is from May 12, 2026, but its selected LLM material dates to 2017–2021. Recent
+repository maintenance does not make those papers new. These cards are useful
+foundations for the newer selection. The complete file inventory did not contain
+dedicated duplex-speech or modern LLM preference-training collections.
+
+The newer cards use primary sources from 2025–2026, including
+[Olmo Hybrid (March 2026)](https://allenai.org/blog/olmohybrid),
+[PersonaPlex (January 2026)](https://research.nvidia.com/labs/adlr/personaplex/),
+and [DyaPlex (June 2026)](https://arxiv.org/abs/2606.03874). This is a focused
+supplement checked on September 12, 2026, not an exhaustive survey of the latest
+literature. Benchmark claims are qualified by their experimental setting. Each
+card includes its source, year, and check date.
+
+The MLRF selection was rewritten into short, text-only questions and answers,
+with links to the pinned source files and original papers. Image-only prompts,
+unrelated vision/robotics decks, and PPO topics already covered by the first
+batch were excluded. Existing MLRF PPO wording about a guaranteed clipping bound
+was not imported. The 24 newer cards are original and are labeled as such,
+rather than attributed to MLRF.
+
+All 34 notes were imported and checked through AnkiConnect, including fields,
+tags, deck placement, and new-card state. Prior cards' scheduling metadata was
+unchanged. The DyaPlex card and its source attribution were visually checked in
+Anki's preview. Study the new cards in Anki before they can appear in the feed's
+due-card pool. This addition does not change the multiplication cadence.
+
+[Editable research source](recall-llm-research.json) and a repeatable import:
+
+```sh
+python3 scripts/prepare-research-cards.py
+python3 scripts/prepare-research-cards.py --import-anki
+```
+
+The first command writes the UTF-8 text export. The second adds missing notes
+via local AnkiConnect and verifies the batch. It does not overwrite existing
+notes or submit reviews. The export uses the same column mappings as the
+foundation and multiplication files below.
+
 ## ML foundations and multiplication
 
 The September 12, 2026 batch contains original text-only Basic notes:
@@ -45,7 +95,8 @@ excludes reversed duplicates such as both 23 × 47 and 47 × 23.
 
 ## Existing collections to consider
 
-These were inspected as candidates, not imported:
+MLRF has now contributed the selected, rewritten research cards above. Anki
+Science remains a candidate and has not been imported:
 
 | Collection                                                                    | Useful material                                                        | Assessment                                                                                                                                                                                     |
 | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

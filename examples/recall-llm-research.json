@@ -1,0 +1,294 @@
+{
+  "checked": "2026-09-12",
+  "mlrf_commit": "26ee62a87f7c08049c9701cecfd28648c8de6b2b",
+  "papers": {
+    "attention": {
+      "title": "Attention Is All You Need",
+      "year": 2017,
+      "url": "https://arxiv.org/html/1706.03762v7",
+      "mlrf_file": "attention_is_all_you_need.md"
+    },
+    "lora": {
+      "title": "LoRA",
+      "year": 2021,
+      "url": "https://arxiv.org/html/2106.09685v2",
+      "mlrf_file": "lora.md"
+    },
+    "switch": {
+      "title": "Switch Transformers",
+      "year": 2021,
+      "url": "https://arxiv.org/html/2101.03961v3",
+      "mlrf_file": "switch_transformer.md"
+    },
+    "olmo3": {
+      "title": "Olmo 3 training stages",
+      "year": 2025,
+      "url": "https://allenai.org/blog/olmo3"
+    },
+    "midtraining": {
+      "title": "Midtraining Bridges Pretraining and Posttraining Distributions",
+      "year": 2025,
+      "url": "https://arxiv.org/html/2510.14865v1"
+    },
+    "hybrid": {
+      "title": "Olmo Hybrid",
+      "year": 2026,
+      "url": "https://allenai.org/blog/olmohybrid"
+    },
+    "deepseek32": {
+      "title": "DeepSeek-V3.2",
+      "year": 2025,
+      "url": "https://arxiv.org/html/2512.02556v1"
+    },
+    "personaplex": {
+      "title": "PersonaPlex",
+      "year": 2026,
+      "url": "https://research.nvidia.com/labs/adlr/personaplex/"
+    },
+    "dyaplex": {
+      "title": "DyaPlex",
+      "year": 2026,
+      "url": "https://research.nvidia.com/labs/amri/projects/DyaPlex/"
+    }
+  },
+  "cards": [
+    {
+      "id": "attention-qkv",
+      "paper": "attention",
+      "topic": "pretraining",
+      "front": "In standard self-attention, how are queries, keys, and values obtained from the input X?",
+      "back": "Through separate learned projections: \\(Q=XW_Q\\), \\(K=XW_K\\), and \\(V=XW_V\\). Queries and keys determine attention weights; those weights mix the value vectors."
+    },
+    {
+      "id": "attention-scaled-dot-product",
+      "paper": "attention",
+      "topic": "pretraining",
+      "front": "What is the scaled dot-product attention formula, and why scale the dot products?",
+      "back": "\\(\\operatorname{softmax}(QK^T/\\sqrt{d_k})V\\). Scaling keeps dot-product magnitudes from growing with key dimension and pushing softmax into saturation."
+    },
+    {
+      "id": "attention-heads",
+      "paper": "attention",
+      "topic": "pretraining",
+      "front": "What does multi-head attention add beyond one attention operation?",
+      "back": "Several learned projection sets produce separate attention outputs. Concatenating and projecting them lets the layer combine different relationships and representation subspaces."
+    },
+    {
+      "id": "attention-causal-mask",
+      "paper": "attention",
+      "topic": "pretraining",
+      "front": "Why does a causal language model mask future tokens when training on a complete sequence?",
+      "back": "Otherwise a position could access information unavailable during left-to-right generation. Disallowed attention logits become negative infinity before softmax, giving future positions zero weight."
+    },
+    {
+      "id": "lora-update",
+      "paper": "lora",
+      "topic": "posttraining",
+      "front": "What parameters does LoRA train for an adapted weight matrix?",
+      "back": "It freezes the base matrix and learns a low-rank update \\(\\Delta W=BA\\), with the chosen scaling factor applied. A and B contain far fewer trainable parameters than a full matrix update."
+    },
+    {
+      "id": "lora-initialization",
+      "paper": "lora",
+      "topic": "posttraining",
+      "front": "Why does the original LoRA initialization set B to zero and A randomly?",
+      "back": "The initial product BA is zero, so adaptation starts with the base model's output unchanged. Once training begins, gradients can update B because A is nonzero."
+    },
+    {
+      "id": "switch-routing",
+      "paper": "switch",
+      "topic": "moe",
+      "front": "In Switch Transformer (2021), what does top-1 expert routing mean?",
+      "back": "Each token selects one feed-forward expert using the largest router probability. That expert's output is weighted by its gate value; the model has many experts but uses one per token at that layer."
+    },
+    {
+      "id": "switch-capacity",
+      "paper": "switch",
+      "topic": "moe",
+      "front": "What does Switch Transformer's capacity factor control?",
+      "back": "Per-expert token slots: approximately (batch tokens / experts) × capacity factor. Extra slots absorb routing imbalance, at the cost of more memory and potentially wasted computation."
+    },
+    {
+      "id": "switch-overflow",
+      "paper": "switch",
+      "topic": "moe",
+      "front": "In the original Switch implementation, what happens to a token that exceeds its expert's capacity?",
+      "back": "It skips that expert's computation and continues through the residual connection. This is a property of that implementation, not a requirement for every MoE model."
+    },
+    {
+      "id": "switch-balancing",
+      "paper": "switch",
+      "topic": "moe",
+      "front": "Why does Switch Transformer add an auxiliary router loss?",
+      "back": "To discourage concentrating token assignments on a few experts. Better balance reduces expert overflow and improves utilization."
+    },
+    {
+      "id": "olmo3-midtraining",
+      "paper": "olmo3",
+      "topic": "midtraining",
+      "front": "In Olmo 3 (2025), what changes between broad pretraining and mid-training?",
+      "back": "Training continues with a more targeted mixture emphasizing difficult math, code, science, and reading comprehension. Mid-training refines base-model capabilities before the later post-training branches."
+    },
+    {
+      "id": "olmo3-long-context",
+      "paper": "olmo3",
+      "topic": "pretraining",
+      "front": "Why does Olmo 3 include a separate long-context extension stage?",
+      "back": "The model trains on long documents mixed with mid-training data to learn to use longer inputs. Merely increasing an allowed context-length setting does not supply that training experience."
+    },
+    {
+      "id": "olmo3-posttraining-signals",
+      "paper": "olmo3",
+      "topic": "posttraining",
+      "front": "What different training signals do Olmo 3's SFT, DPO, and RLVR stages use?",
+      "back": "SFT learns from demonstration responses; DPO uses preferred/rejected response pairs; RLVR optimizes generated responses using verifiable rewards. They shape behavior through different supervision."
+    },
+    {
+      "id": "olmo3-rl-zero",
+      "paper": "olmo3",
+      "topic": "rl",
+      "front": "Why is Olmo 3-RL Zero useful for studying LLM reinforcement learning?",
+      "back": "It exposes RL pathways from a base model, with checkpoints across domains. Researchers can compare RL interventions without treating an opaque final instruction-tuned model as the only starting point."
+    },
+    {
+      "id": "midtraining-bridge",
+      "paper": "midtraining",
+      "topic": "midtraining",
+      "front": "What mechanism does the 2025 mid-training distribution-bridging study propose?",
+      "back": "Late pretraining with suitable specialized, often instruction-formatted data reduces the mismatch with later fine-tuning data. Its strongest measured gains were in math and code, where the syntactic gap was most reducible."
+    },
+    {
+      "id": "midtraining-forgetting-result",
+      "paper": "midtraining",
+      "topic": "continual_learning",
+      "front": "What retention result did the 2025 mid-training study report after SFT?",
+      "back": "In its math/code experiments, mid-training improved in-domain loss and reduced forgetting of pretraining data relative to continued pretraining. This is an experimental result, not a guarantee that mid-training prevents forgetting."
+    },
+    {
+      "id": "midtraining-timing",
+      "paper": "midtraining",
+      "topic": "midtraining",
+      "front": "In the 2025 distribution-bridging paper's code experiments, which mattered more: mid-training timing or mixture weights?",
+      "back": "Timing had the larger effect in the tested settings. Introducing specialized data earlier improved both code performance and retention of general language modeling. The result should not be treated as a universal optimal schedule."
+    },
+    {
+      "id": "hybrid-architecture",
+      "paper": "hybrid",
+      "topic": "pretraining",
+      "front": "What sequence-mixing pattern does Olmo Hybrid (2026) use?",
+      "back": "Three Gated DeltaNet sublayers followed by one attention sublayer, repeated. It replaces Olmo 3's sliding-window attention with linear recurrence while retaining periodic attention."
+    },
+    {
+      "id": "hybrid-retain-attention",
+      "paper": "hybrid",
+      "topic": "pretraining",
+      "front": "Why combine recurrence and attention in Olmo Hybrid?",
+      "back": "Recurrence maintains an evolving compressed state; attention can retrieve precise details from earlier tokens. The combination targets state tracking and recall within one model."
+    },
+    {
+      "id": "hybrid-efficiency-claim",
+      "paper": "hybrid",
+      "topic": "scaling",
+      "front": "How should you interpret Olmo Hybrid's reported roughly 2× data-efficiency gain?",
+      "back": "It is a benchmark- and comparison-specific result: matching Olmo 3's MMLU accuracy used about 49% fewer tokens in controlled studies. It does not mean every task needs half the data."
+    },
+    {
+      "id": "hybrid-controls",
+      "paper": "hybrid",
+      "topic": "scaling",
+      "front": "What comparison helps attribute Olmo Hybrid's gains to its architecture?",
+      "back": "Compare similar-size models with matched training data and token budgets, and account for throughput. Ai2 reports comparable throughput to Olmo 3, making the architectural comparison more informative than comparing unrelated final models."
+    },
+    {
+      "id": "deepseek32-dsa",
+      "paper": "deepseek32",
+      "topic": "pretraining",
+      "front": "What does DeepSeek-V3.2's sparse attention select?",
+      "back": "An indexer selects earlier key-value entries for main attention. Main attention costs O(Lk); the cheaper indexer still costs O(L²). The whole mechanism is not simply linear."
+    },
+    {
+      "id": "deepseek32-posttraining",
+      "paper": "deepseek32",
+      "topic": "posttraining",
+      "front": "What are DeepSeek-V3.2's two main post-training steps?",
+      "back": "Distill data from domain specialists, then run mixed RL across reasoning, agent tasks, and human alignment. Mixing domains aims to retain capabilities together."
+    },
+    {
+      "id": "deepseek32-offpolicy-mask",
+      "paper": "deepseek32",
+      "topic": "rl",
+      "front": "Which sequences does DeepSeek-V3.2's off-policy mask remove from the policy loss?",
+      "back": "Sequences with negative advantage and excessive divergence from the sampling policy. It targets destabilizing stale negative examples, rather than discarding every old rollout."
+    },
+    {
+      "id": "deepseek32-keep-routing",
+      "paper": "deepseek32",
+      "topic": "rl",
+      "front": "Why does DeepSeek-V3.2 preserve rollout expert-routing choices during RL updates?",
+      "back": "Changing the active experts between rollout and training adds another mismatch. Reusing routing paths keeps updates on the expert parameters used to generate the sample."
+    },
+    {
+      "id": "deepseek32-agent-tasks",
+      "paper": "deepseek32",
+      "topic": "rl",
+      "front": "What makes DeepSeek-V3.2's synthesized agent tasks suitable for RL?",
+      "back": "They pair environments and tools with difficult tasks and executable verifiers: finding a solution can be hard while checking it is tractable."
+    },
+    {
+      "id": "personaplex-duplex",
+      "paper": "personaplex",
+      "topic": "duplex",
+      "front": "What does full-duplex speech interaction mean in PersonaPlex (2026)?",
+      "back": "The model can listen and speak concurrently. It can respond to interruptions or produce backchannels while the conversation continues, instead of requiring strictly alternating complete turns."
+    },
+    {
+      "id": "personaplex-conditioning",
+      "paper": "personaplex",
+      "topic": "duplex",
+      "front": "How does PersonaPlex separately specify conversational role and voice?",
+      "back": "A text prompt supplies role and contextual instructions; an audio voice prompt supplies vocal characteristics. Both condition the same conversational model."
+    },
+    {
+      "id": "personaplex-training-data",
+      "paper": "personaplex",
+      "topic": "duplex",
+      "front": "Why do speaker-separated conversational recordings matter for PersonaPlex training?",
+      "back": "They preserve who is speaking and when, including overlap, pauses, and backchannels. Plain alternating text transcripts omit much of the timing behavior a duplex model must learn."
+    },
+    {
+      "id": "personaplex-evaluation",
+      "paper": "personaplex",
+      "topic": "duplex",
+      "front": "Beyond answer correctness, what should PersonaPlex-style interaction evaluation measure?",
+      "back": "Turn-taking, interruption and response latency, pause handling, and adherence to the assigned role. A fluent transcript alone cannot establish that live conversation works well."
+    },
+    {
+      "id": "dyaplex-modalities",
+      "paper": "dyaplex",
+      "topic": "duplex",
+      "front": "What does DyaPlex (2026) add to full-duplex speech interaction?",
+      "back": "Continuous perception and generation of body motion alongside speech. It models both participants so the agent's speech and motion can respond to its partner in a streaming interaction."
+    },
+    {
+      "id": "dyaplex-frozen-tower",
+      "paper": "dyaplex",
+      "topic": "posttraining",
+      "front": "Why does DyaPlex freeze its PersonaPlex speech tower while training a motion pathway?",
+      "back": "To preserve the base model's conversational capabilities while learning a coupled motion model. This adds a modality through a trainable pathway without updating the entire speech model."
+    },
+    {
+      "id": "dyaplex-alignment",
+      "paper": "dyaplex",
+      "topic": "duplex",
+      "front": "How does DyaPlex align motion generation with conversational speech?",
+      "back": "It combines interleaved tokens for both participants with cross-attention to speech features, guided by time-aligned speech-motion rotary positional embeddings. The alignment ties motion to the unfolding conversation."
+    },
+    {
+      "id": "dyaplex-partner-motion",
+      "paper": "dyaplex",
+      "topic": "duplex",
+      "front": "Why does DyaPlex perceive its partner's motion rather than generate gestures from its own speech alone?",
+      "back": "Partner motion provides evidence for reciprocal behavior such as gesture mirroring and visual backchannels. The authors' ablation reports that removing this input harms those behaviors."
+    }
+  ]
+}
