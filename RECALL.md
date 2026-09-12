@@ -147,18 +147,30 @@ compare-and-answer API.
 
 ## Put math in the mix
 
-Default math scope: `tag:math`. Every third card offer tries that scope within
-the main Anki query, then falls back to another due card when no matching math
-is due. Math cards may also occur naturally in the ordinary due pool. There is
-no invented schedule or grading of your scratch work: solve, reveal, then
-self-rate honestly.
+Multiplication defaults to every fourth card offer (25%) using the tag
+`recall::multiplication`. The other three slots exclude that tag while other
+cards are available. Both groups respect your main Anki query and due dates. If
+either group has no available due cards, Recall falls back to the other; 25% is
+a target for feed offers, not a quota imposed on your collection or Anki
+reviews. Skips count as offers, re-fetching an existing card does not, and the
+counter persists across tabs and worker restarts until the local day changes.
+Set **Aim for multiplication every…** to 0 to disable this preference.
 
-Use an existing math deck, or import the
+The broader math scope remains `tag:math`, with every third review slot trying
+that scope. Multiplication takes priority in its reserved slots and is excluded
+from the broader math scope in the other slots while the multiplication mix is
+enabled. Other math may also appear in the ordinary due pool. Solve, reveal,
+then self-rate honestly; Anki controls the schedule.
+
+The [card collection and import notes](examples/README.md) now include 24
+sourced ML concept cards and 120 two-digit multiplication problems with worked
+solutions. Use an existing math deck, or import the
 [12-card starter](examples/recall-math-starter.txt), following
 [the import notes](examples/README.md). Newly imported cards must be introduced
-in Anki before the feed can offer them as due reviews. On the development
-machine the initial read-only check found six due cards and zero with the `math`
-tag. The starter file has not been imported into the user's collection.
+in Anki before the feed can offer them as due reviews. The new September 12
+batch was imported into the local development collection and verified as 144 new
+cards; no reviews or due-date changes were submitted. The older starter file has
+not been imported into the user's collection.
 
 Bundled KaTeX renders common LaTeX in `\(...\)`, `\[...\]`, `$$...$$`, and
 `$...$`. The scratchpad is ephemeral and is never sent to Anki or the optional

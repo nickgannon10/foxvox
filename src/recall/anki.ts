@@ -4,6 +4,7 @@ import { LocalStorage } from './settings';
 export const ANKI_URL = 'http://127.0.0.1:8765';
 export const REVIEW_STATE_KEY = 'foxvox.recall.reviews.v1';
 export const LEASE_LIFETIME_MS = 20 * 60 * 1000;
+export const MULTIPLICATION_QUERY = 'tag:recall::multiplication';
 
 export class AnkiError extends Error {
   constructor(message: string) {
@@ -338,12 +339,31 @@ export class RecallService {
         settings.mathEvery > 0 &&
         Boolean(settings.mathQuery.trim()) &&
         (state.stats.reviewed + todayReserved + 1) % settings.mathEvery === 0;
-      const queries = mathTurn
+      // Count offers, including skipped ones, across tabs and worker restarts. Keep
+      // multiplication out of the other slots while both kinds of card are due.
+      const mixMultiplication = settings.multiplicationEvery > 0;
+      const multiplicationTurn =
+        mixMultiplication && (state.stats.replaced + 1) % settings.multiplicationEvery === 0;
+      const ordinaryScope = mixMultiplication ? `-${MULTIPLICATION_QUERY}` : '';
+      const ordinaryQueries = mathTurn
         ? [
-            { query: buildDueQuery(settings.ankiQuery, settings.mathQuery), math: true },
-            { query: buildDueQuery(settings.ankiQuery), math: false },
+            {
+              query: buildDueQuery(settings.ankiQuery, settings.mathQuery, ordinaryScope),
+              math: true,
+            },
+            { query: buildDueQuery(settings.ankiQuery, ordinaryScope), math: false },
           ]
-        : [{ query: buildDueQuery(settings.ankiQuery), math: false }];
+        : [{ query: buildDueQuery(settings.ankiQuery, ordinaryScope), math: false }];
+      const multiplicationQuery = {
+        query: buildDueQuery(settings.ankiQuery, MULTIPLICATION_QUERY),
+        math: true,
+      };
+      // Prefer an available due card when either pool runs out; never change Anki's schedule.
+      const queries = !mixMultiplication
+        ? ordinaryQueries
+        : multiplicationTurn
+          ? [multiplicationQuery, ...ordinaryQueries]
+          : [...ordinaryQueries, multiplicationQuery];
       for (const { query, math } of queries) {
         const candidates = (await client.findCards(query)).filter(id => !unavailable.has(id));
         for (const cardId of candidates.slice(0, 30)) {

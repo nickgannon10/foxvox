@@ -16,6 +16,7 @@ export interface RecallSettings {
   ankiQuery: string;
   mathQuery: string;
   mathEvery: number;
+  multiplicationEvery: number;
   ankiKey: string;
   aiEnabled: boolean;
   aiKey: string;
@@ -38,6 +39,7 @@ export const DEFAULT_SETTINGS: RecallSettings = {
   ankiQuery: '',
   mathQuery: 'tag:math',
   mathEvery: 3,
+  multiplicationEvery: 4,
   ankiKey: '',
   aiEnabled: false,
   aiKey: '',

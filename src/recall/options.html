@@ -132,7 +132,7 @@
                 <p class="hint">Use a tag or deck containing your math cards.</p>
               </div>
               <div class="field">
-                <label for="mathEvery">Aim for a math card every…</label>
+                <label for="mathEvery">Aim for other math every…</label>
                 <div class="number-with-unit">
                   <input
                     id="mathEvery"
@@ -146,6 +146,25 @@
                 </div>
                 <p class="hint">When math cards are due. Set to 0 to turn off.</p>
               </div>
+            </div>
+            <div class="field">
+              <label for="multiplicationEvery">Aim for multiplication every…</label>
+              <div class="number-with-unit">
+                <input
+                  id="multiplicationEvery"
+                  name="multiplicationEvery"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  required
+                /><span>cards</span>
+              </div>
+              <p class="hint">
+                4 targets 25% of card offers. Tag these cards recall::multiplication in Anki. Other
+                slots prefer the rest of your cards; the mix varies if either group has no available
+                due cards. Set to 0 to use the ordinary mix.
+              </p>
             </div>
           </section>
 

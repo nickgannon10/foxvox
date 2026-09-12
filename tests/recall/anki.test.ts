@@ -4,6 +4,7 @@ import {
   AnkiClient,
   buildDueQuery,
   LEASE_LIFETIME_MS,
+  MULTIPLICATION_QUERY,
   RecallService,
   REVIEW_STATE_KEY,
 } from '../../src/recall/anki';
@@ -54,6 +55,7 @@ function fakeAnki() {
   const requests: RequestBody[] = [];
   let due = [11, 22, 33];
   let math = [33];
+  let multiplication: number[] = [];
   let failAnswer = false;
   const fetcher = jest.fn(async (_url: string | URL | Request, init?: RequestInit) => {
     const request: RequestBody = JSON.parse(String(init?.body));
@@ -74,7 +76,11 @@ function fakeAnki() {
         const cid = /cid:(\d+)/.exec(query);
         result = due.filter(
           id =>
-            (!cid || id === Number(cid[1])) && (!query.includes('tag:math') || math.includes(id))
+            (!cid || id === Number(cid[1])) &&
+            (!query.includes('tag:math') || math.includes(id)) &&
+            (query.includes(`-${MULTIPLICATION_QUERY}`)
+              ? !multiplication.includes(id)
+              : !query.includes(MULTIPLICATION_QUERY) || multiplication.includes(id))
         );
         break;
       }
@@ -109,6 +115,9 @@ function fakeAnki() {
     },
     setMath: (ids: number[]) => {
       math = ids;
+    },
+    setMultiplication: (ids: number[]) => {
+      multiplication = ids;
     },
     failAnswers: () => {
       failAnswer = true;
@@ -297,6 +306,53 @@ describe('persisted review leases', () => {
     const fallback = harness({ mathEvery: 1 });
     fallback.anki.setMath([]);
     expect((await fallback.service.next('tab:1', 'post-a'))?.cardId).toBe(11);
+  });
+
+  test('reserves every fourth offer for multiplication, including skips and worker restarts', async () => {
+    const h = harness({ mathEvery: 1 });
+    h.anki.setMultiplication([11]);
+    h.anki.setMath([11, 33]);
+    let service = h.service;
+    const offered: number[] = [];
+    for (let index = 1; index <= 8; index++) {
+      const owner = index % 2 ? 'tab:1' : 'tab:2';
+      const card = (await service.next(owner, `post-${index}`))!;
+      offered.push(card.cardId);
+      // Re-fetching the same rendered card does not consume a cadence slot.
+      expect(await service.next(owner, `post-${index}`)).toEqual(card);
+      await service.release(owner, card.leaseId);
+      service = h.restart();
+    }
+    expect(offered).toEqual([33, 33, 33, 11, 33, 33, 33, 11]);
+    expect((await service.stats()).replaced).toBe(8);
+    expect(h.anki.answers()).toHaveLength(0);
+  });
+
+  test('falls back when either pool is unavailable without moving the Anki schedule', async () => {
+    const h = harness({ multiplicationEvery: 2, mathEvery: 0 });
+    h.anki.setMultiplication([11]);
+    const first = (await h.service.next('tab:1', 'first'))!;
+    expect(first.cardId).toBe(22);
+    const second = (await h.service.next('tab:1', 'second'))!;
+    expect(second.cardId).toBe(11);
+    // A multiplication card reserved by another tab is not available for reuse.
+    expect((await h.service.next('tab:2', 'third'))?.cardId).toBe(33);
+    expect(await h.service.next('tab:2', 'fourth')).toBeNull();
+    await h.service.release('tab:1', first.leaseId);
+    expect((await h.service.next('tab:2', 'fourth'))?.cardId).toBe(22);
+    expect(h.anki.answers()).toHaveLength(0);
+
+    const onlyMultiplication = harness({ mathEvery: 0 });
+    onlyMultiplication.anki.setDue([11]);
+    onlyMultiplication.anki.setMultiplication([11]);
+    expect((await onlyMultiplication.service.next('tab:1', 'first'))?.isMath).toBe(true);
+  });
+
+  test('disabling the multiplication cadence restores the ordinary pool', async () => {
+    const h = harness({ multiplicationEvery: 0, mathEvery: 0 });
+    h.anki.setMultiplication([11]);
+    expect((await h.service.next('tab:1', 'first'))?.cardId).toBe(11);
+    expect(h.anki.requests.filter(r => r.action === 'findCards')).toHaveLength(1);
   });
 
   test('expired cards cannot be graded and no longer reserve daily slots', async () => {
@@ -546,6 +602,7 @@ describe('runtime message boundary', () => {
       dailyLimit: 1e6,
       minPostGap: -2,
       mathEvery: 2.8,
+      multiplicationEvery: 4.9,
       interests: ' math ',
       aiKey: 'abc',
       surprise: true,
@@ -554,6 +611,7 @@ describe('runtime message boundary', () => {
       dailyLimit: 100,
       minPostGap: 0,
       mathEvery: 2,
+      multiplicationEvery: 4,
       interests: 'math',
       aiKey: 'abc',
     });
@@ -569,11 +627,14 @@ describe('runtime message boundary', () => {
       filterPolitics: false,
       filterSports: true,
       insertEvery: 10,
+      multiplicationEvery: 4,
     });
     expect(normalizeSettings({ insertEvery: 0, filterSports: false })).toMatchObject({
       insertEvery: 0,
       filterSports: false,
     });
     expect(normalizeSettings({ insertEvery: 500 }).insertEvery).toBe(100);
+    expect(normalizeSettings({ multiplicationEvery: 0 }).multiplicationEvery).toBe(0);
+    expect(normalizeSettings({ multiplicationEvery: 500 }).multiplicationEvery).toBe(100);
   });
 });

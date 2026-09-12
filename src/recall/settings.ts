@@ -49,6 +49,12 @@ export function normalizeSettings(input: unknown): RecallSettings {
   settings.minPostGap = boundedInteger(values.minPostGap, settings.minPostGap, 0, 100);
   settings.insertEvery = boundedInteger(values.insertEvery, settings.insertEvery, 0, 100);
   settings.mathEvery = boundedInteger(values.mathEvery, settings.mathEvery, 0, 100);
+  settings.multiplicationEvery = boundedInteger(
+    values.multiplicationEvery,
+    settings.multiplicationEvery,
+    0,
+    100
+  );
   settings.testModeUntil = boundedInteger(values.testModeUntil, 0, 0, Number.MAX_SAFE_INTEGER);
   if (settings.testModeUntil <= Date.now()) settings.testModeUntil = 0;
   if (!settings.aiModel) settings.aiModel = DEFAULT_SETTINGS.aiModel;
